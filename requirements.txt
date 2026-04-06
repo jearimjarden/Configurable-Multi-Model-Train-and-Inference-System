@@ -1,0 +1,11 @@
+pydantic
+
+scikit-learn
+
+pandas
+
+numpy
+
+pyyaml
+
+
