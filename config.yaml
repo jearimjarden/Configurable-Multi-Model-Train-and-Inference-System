@@ -31,5 +31,4 @@ inference:
 
 artifact:
   save_dir: "data/artifacts"
-  metadata_name: "test"
   only_best: False

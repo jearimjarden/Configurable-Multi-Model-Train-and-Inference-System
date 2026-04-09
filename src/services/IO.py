@@ -1,37 +1,37 @@
 import pickle
-from sklearn.pipeline import Pipeline
 import os
 from pathlib import Path
 from datetime import datetime
 import json
-
-
-def select_best_model(report, selection_metrics):
-    best = max(report, key=lambda x: report[x]["test_{}".format(selection_metrics)])
-    return best
+from sklearn.pipeline import Pipeline
 
 
 def create_artifact(
+    best_model: str,
     fitted_model: dict[str, Pipeline],
     only_best: bool,
-    report: dict,
-    selection_metrics: str,
     save_dir: str,
-):
+) -> None:
     path = Path(save_dir)
     os.makedirs(path, exist_ok=True)
-    best_model = select_best_model(report, selection_metrics)
     if only_best:
         with open(path / "best_{}.pkl".format(best_model), "wb") as f:
             pickle.dump(fitted_model[best_model], f)
 
     elif not only_best:
         for name, pipeline in fitted_model.items():
-            with open(path / "{}.pkl".format(name), "wb") as f:
+
+            if name == best_model:
+                save_name = "best_{}.pkl".format(name)
+            else:
+                save_name = "{}.pkl".format(name)
+
+            with open(path / save_name, "wb") as f:
                 pickle.dump(pipeline, f)
 
 
 def create_metadata(
+    best_model,
     save_dir,
     only_best: bool,
     report: dict,
@@ -42,14 +42,13 @@ def create_metadata(
     features_col,
     random_seed,
     models,
-    selection_metrics,
-):
+) -> None:
     if only_best:
-        best_model = select_best_model(report, selection_metrics)
+
         metadata_report = {
             "run": {
                 "artifact_name": best_model + ".pkl",
-                "timestamp": datetime.now().strftime("%d/%m%Y, %H:%M%S"),
+                "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
             },
             "model": {
                 "type": models[best_model].type.name,
@@ -67,7 +66,7 @@ def create_metadata(
             },
             "metrics": report[best_model],
         }
-        with open(Path(save_dir) / "{}.json".format(best_model), "w") as f:
+        with open(Path(save_dir) / "best_{}.json".format(best_model), "w") as f:
             f.write(json.dumps(metadata_report))
 
     elif not only_best:
@@ -93,5 +92,11 @@ def create_metadata(
                 },
                 "metrics": report[key],
             }
-            with open(Path(save_dir) / "{}.json".format(key), "w") as f:
+
+            if key == best_model:
+                save_name = "best_{}.json".format(key)
+            else:
+                save_name = "{}.json".format(key)
+
+            with open(Path(save_dir) / save_name, "w") as f:
                 f.write(json.dumps(metadata_report))

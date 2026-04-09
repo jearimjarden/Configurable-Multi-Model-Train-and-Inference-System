@@ -27,7 +27,7 @@ class ConfigTrainModel(BaseModel):
         try:
             return ModelType[value.upper()]
         except KeyError as e:
-            raise e
+            raise e  # why i need to add e
 
 
 class ConfigTrain(BaseModel):
@@ -51,7 +51,6 @@ class ConfigInference(BaseModel):
 
 class ConfigArtifact(BaseModel):
     save_dir: str = Field(...)
-    metadata_name: str = Field(...)
     only_best: bool = Field(...)
     model_config = ConfigDict(extra="forbid")
 

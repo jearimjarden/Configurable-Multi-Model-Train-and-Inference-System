@@ -1,3 +1,4 @@
+from ..tools.exceptions import DropColumnsInvalid, TargetColumnInvalid, TrueValueInvalid
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -27,9 +28,17 @@ def create_preprocessor(X: pd.DataFrame) -> ColumnTransformer:
 def split_data(
     df: pd.DataFrame, target_col: str, true_value: str, drop_features: list
 ) -> tuple[pd.DataFrame, pd.Series]:
+    if target_col not in df.columns.tolist():
+        raise TargetColumnInvalid("Target Columns Does not Exist")
+    if not set(drop_features).issubset(set(df)):
+        raise DropColumnsInvalid("Drop Features are not Exist in Training Dataset")
+    if true_value not in df[target_col].unique():
+        raise TrueValueInvalid("True Value Does not Exist in Target Column")
+
     unique_value = df[target_col].dropna().unique().tolist()
     if len(unique_value) > 2:
-        raise ValueError("Target Value Should be Binary")
+        raise TargetColumnInvalid("Target Column's Value Is not Binary")
+
     false_value = list(set(unique_value) - set(true_value))
     y = df[target_col].map({true_value: 1, false_value[0]: 0})
 

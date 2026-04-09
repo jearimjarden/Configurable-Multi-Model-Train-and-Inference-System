@@ -1,18 +1,54 @@
-class ConfigInvalid(Exception):
+class ConfigError(Exception):
     pass
 
 
-class ConfigNotExists(Exception):
+class ConfigInvalid(ConfigError):
     pass
 
 
-class DataNotExists(Exception):
+class ConfigNotExists(ConfigError):
     pass
 
 
-class DataInvalidExtension(Exception):
+class DataError(Exception):
     pass
 
 
-class DataEmpty(Exception):
+class DataNotExists(DataError):
+    pass
+
+
+class DataInvalidExtension(DataError):
+    pass
+
+
+class DataEmpty(DataError):
+    pass
+
+
+class PreprocessError(Exception):
+    pass
+
+
+class TargetColumnInvalid(PreprocessError):
+    pass
+
+
+class TrueValueInvalid(PreprocessError):
+    pass
+
+
+class DropColumnsInvalid(PreprocessError):
+    pass
+
+
+class TrainError(Exception):
+    pass
+
+
+class MetricsInvalid(TrainError):
+    pass
+
+
+class ParamInvalid(TrainError):
     pass

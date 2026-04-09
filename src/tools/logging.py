@@ -1,8 +1,6 @@
 import logging
 from datetime import datetime
 import json
-from logging import handlers
-from xml.sax import handler
 
 
 class JSONFormatter(logging.Formatter):
