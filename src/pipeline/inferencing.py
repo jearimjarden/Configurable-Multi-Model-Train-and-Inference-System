@@ -65,7 +65,7 @@ class InferencePipeline:
                 data=data,
                 extra_columns=extra_columns,
                 missing_columns=missing_columns,
-                metadata_columns=metadata_columns,
+                metadata_columns=metadata.training.features_col,
             )
             self.logger.info(
                 f"imputed columns: {missing_columns}, dropped features: {extra_columns}"

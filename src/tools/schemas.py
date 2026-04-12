@@ -5,6 +5,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeClassifier
 from typing import TypedDict
+from ..tools.exceptions import ConfigError
 
 
 class Artifact(TypedDict):
@@ -43,8 +44,8 @@ class ConfigTrainModel(BaseModel):
     def parse_model_type(cls, value):
         try:
             return ModelType[value.upper()]
-        except KeyError as e:
-            raise e  # why i need to add e
+        except KeyError:
+            raise ConfigError("Invalid Model Type")
 
 
 class ConfigTrain(BaseModel):

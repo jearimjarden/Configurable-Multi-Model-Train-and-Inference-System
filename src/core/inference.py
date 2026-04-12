@@ -3,12 +3,9 @@ from ..tools.cli import cli_parser
 from ..tools.logging import logging_setup
 import logging
 from ..tools.exceptions import (
-    ArtifactError,
     ConfigError,
     InferenceError,
-    MetadataError,
     DataError,
-    PreprocessError,
 )
 from ..tools.loader import config_load
 from ..pipeline.inferencing import InferencePipeline
