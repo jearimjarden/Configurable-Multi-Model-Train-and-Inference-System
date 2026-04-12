@@ -30,6 +30,10 @@ class PreprocessError(Exception):
     pass
 
 
+class MissingColumns(PreprocessError):
+    pass
+
+
 class TargetColumnInvalid(PreprocessError):
     pass
 
@@ -51,4 +55,12 @@ class MetricsInvalid(TrainError):
 
 
 class ParamInvalid(TrainError):
+    pass
+
+
+class MetadataError(Exception):
+    pass
+
+
+class ArtifactError(Exception):
     pass

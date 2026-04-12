@@ -16,7 +16,7 @@ def create_preprocessor(X: pd.DataFrame) -> ColumnTransformer:
     cat_pipeline = Pipeline(
         [
             ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("encoder", OneHotEncoder(drop="first")),
+            ("encoder", OneHotEncoder(drop="first", handle_unknown="ignore")),
         ]
     )
 
@@ -45,3 +45,13 @@ def split_data(
     features_to_drop = drop_features + [target_col]
     X = df.drop(features_to_drop, axis=1)
     return (X, y)
+
+
+def align_data_schemas(
+    data: pd.DataFrame, extra_columns: set, missing_columns: set, metadata_columns: set
+) -> pd.DataFrame:
+    data = data.drop(list(extra_columns), axis=1)
+    for column in list(missing_columns):
+        data[column] = None
+    data = data[list(metadata_columns)]
+    return data

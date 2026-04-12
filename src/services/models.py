@@ -1,5 +1,5 @@
 from ..tools.exceptions import MetricsInvalid, ParamInvalid
-from ..tools.schemas import ConfigTrainModel
+from ..tools.schemas import Artifact, ConfigTrainModel, FittedModel
 from sklearn.compose import ColumnTransformer
 from typing import Type
 from sklearn.ensemble import RandomForestClassifier
@@ -92,8 +92,8 @@ def fit_model(
     y: pd.Series,
     random_seed: int,
     models: dict[str, ConfigTrainModel],
-) -> dict[str, Pipeline]:
-    fitted_model = {}
+) -> list[FittedModel]:
+    fitted_model = []
     for key, value in models.items():
         model = select_model(
             preprocessor=preprocessor,
@@ -102,6 +102,14 @@ def fit_model(
             random_seed=random_seed,
         )
 
-        fitted_model[key] = model.fit(X, y)
+        fitted_model.append(dict(name=key, model=model.fit(X, y)))
 
     return fitted_model
+
+
+def predict_model(
+    artifact: Artifact, data: pd.DataFrame, threshold: float
+) -> list[tuple[float, int]]:
+    proba = artifact["pipeline"].predict_proba(data)[:, 1]
+    pred = (proba >= threshold).astype(int)
+    return list(zip(proba.tolist(), pred.tolist()))

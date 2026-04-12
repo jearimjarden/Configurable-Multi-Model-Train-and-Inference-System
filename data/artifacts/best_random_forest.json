@@ -1,1 +1,42 @@
-{"run": {"artifact_name": "random_forest.pkl", "timestamp": "09/042026, 08:2052"}, "model": {"type": "RANDOM_FOREST", "params": {"max_depth": 5, "random_state": 42}}, "training": {"target_col": "Loan_Status", "features_col": ["Gender", "Married", "Dependents", "Education", "Self_Employed", "ApplicantIncome", "CoapplicantIncome", "LoanAmount", "Loan_Amount_Term", "Credit_History", "Property_Area"], "stratify": true, "random_seed": 42}, "data": {"train_data": "data/train/train_data.csv", "n_samples": 614}, "metrics": {"train_roc_auc": 0.9312323961215567, "test_roc_auc": 0.7543151241603254, "gap_roc_auc": 0.1769172719612313, "roc_auc_std": 0.021457904718218356}}
+{
+    "run": {
+        "uuid": "40cd56ad-97be-4b0e-9cd4-d3b00a43ced5",
+        "artifact_name": "best_random_forest.pkl",
+        "timestamp": "12/04/2026, 13:09:44"
+    },
+    "model": {
+        "type": "RANDOM_FOREST",
+        "params": {
+            "max_depth": 5,
+            "random_state": 42
+        }
+    },
+    "training": {
+        "target_col": "Loan_Status",
+        "features_col": [
+            "Gender",
+            "Married",
+            "Dependents",
+            "Education",
+            "Self_Employed",
+            "ApplicantIncome",
+            "CoapplicantIncome",
+            "LoanAmount",
+            "Loan_Amount_Term",
+            "Credit_History",
+            "Property_Area"
+        ],
+        "stratify": true,
+        "random_seed": 42
+    },
+    "data": {
+        "train_data": "data/train/train_data.csv",
+        "n_samples": 614
+    },
+    "metrics": {
+        "train_roc_auc": 0.9312323961215567,
+        "test_roc_auc": 0.7543151241603254,
+        "gap_roc_auc": 0.1769172719612313,
+        "roc_auc_std": 0.021457904718218356
+    }
+}

@@ -22,27 +22,11 @@ def main(logger: logging.Logger):
         pipeline = TrainingPipeline.from_config(config=config, logger=logger)
         logger.info("Training pipeline created")
 
-        pipeline.load_data()
-        logger.info(
-            f"Training data loaded from {config.data.train_path} with {pipeline.total_rows} rows and {pipeline.total_columns} columns"
-        )
+        logger.info("Starting training pipeline")
+        pipeline.run()
 
-        pipeline.preprocess()
-        logger.info(f"Data preprocessed with label ratio of  1: {pipeline.ratio}")
-
-        pipeline.evaluate()
-        logger.info(
-            f"Evaluated with n_fold: {config.train.n_cv}, selection_metrics: {config.train.selection_metrics}, stratify: {config.train.stratify}, random_seed: {config.train.random_seed}"
-        )
-
-        pipeline.fit_model()
-        logger.info(f"Successfully fit model: {[x for x in pipeline.fitted_model]}")
-
-        pipeline.save_artifact()
-        pipeline.save_metadata()
-        logger.info(
-            f"Artifact and metadata saved in '{config.artifact.save_dir}', saved best only: {config.artifact.only_best}"
-        )
+        logger.info("Exiting training module")
+        sys.exit(0)
 
     except (
         ConfigError,
@@ -61,5 +45,5 @@ def main(logger: logging.Logger):
 if __name__ == "__main__":
     cli_data = cli_parser()
     logging_setup(cli_data.logger)
-    logger = logging.getLogger("train.py")
+    logger = logging.getLogger(__name__)
     main(logger)

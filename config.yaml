@@ -1,6 +1,6 @@
 data:
   train_path: "data/train/train_data.csv"
-  inference_path: "test"
+  inference_path: "data/test/test_data.csv"
 
 train:
   model: 
@@ -25,10 +25,12 @@ train:
   selection_metrics: "roc_auc"
 
 inference:
-  metadata_path: "test"
+  load_dir: "data/artifacts"
+  metadata_name: "best_random_forest.json"
   allow_missing_features: True
-  inference_report_path: "test"
+  inference_report_path: "data/reports"
+  threshold: 0.5
 
 artifact:
   save_dir: "data/artifacts"
-  only_best: False
+  only_best: True
