@@ -1,8 +1,8 @@
 {
     "run": {
-        "uuid": "40cd56ad-97be-4b0e-9cd4-d3b00a43ced5",
+        "uuid": "69ee73c6-c25a-4b5a-8251-4ca07b8bebba",
         "artifact_name": "best_random_forest.pkl",
-        "timestamp": "12/04/2026, 13:09:44"
+        "timestamp": "12/04/2026, 15:39:51"
     },
     "model": {
         "type": "RANDOM_FOREST",

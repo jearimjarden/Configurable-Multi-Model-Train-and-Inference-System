@@ -23,13 +23,14 @@ train:
   true_value: "Y"
   drop_features: ["Loan_ID"]
   selection_metrics: "roc_auc"
-
+  missing_strategy: "most_frequent"
 inference:
   load_dir: "data/artifacts"
   metadata_name: "best_random_forest.json"
   allow_missing_features: True
   inference_report_path: "data/reports"
   threshold: 0.5
+  
 
 artifact:
   save_dir: "data/artifacts"

@@ -5,6 +5,7 @@ import logging
 from ..tools.exceptions import (
     ArtifactError,
     ConfigError,
+    InferenceError,
     MetadataError,
     DataError,
     PreprocessError,
@@ -28,7 +29,11 @@ def main(logger: logging.Logger):
         logger.info("Exiting inference module")
         sys.exit(0)
 
-    except (ConfigError, MetadataError, ArtifactError, DataError, PreprocessError) as e:
+    except (
+        ConfigError,
+        InferenceError,
+        DataError,
+    ) as e:
         logger.error(str(e))
         sys.exit(1)
 

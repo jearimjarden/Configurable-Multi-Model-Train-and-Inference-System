@@ -1,3 +1,4 @@
+from ..tools.schemas import InferenceStrategy
 from ..tools.exceptions import DropColumnsInvalid, TargetColumnInvalid, TrueValueInvalid
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -6,16 +7,23 @@ import pandas as pd
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
-def create_preprocessor(X: pd.DataFrame) -> ColumnTransformer:
+def create_preprocessor(
+    X: pd.DataFrame, missing_strategy: InferenceStrategy
+) -> ColumnTransformer:
     num_columns = X.select_dtypes(exclude=["object", "category"]).columns
     cat_columns = X.select_dtypes(include=["object", "category"]).columns
+
+    if missing_strategy == "constant":
+        cat_imputer = SimpleImputer(strategy="constant", fill_value="MISSING")
+    elif missing_strategy == "most_frequent":
+        cat_imputer = SimpleImputer(strategy="most_frequent")
 
     num_pipeline = Pipeline(
         [("imputer", SimpleImputer(strategy="mean")), ("scaler", StandardScaler())]
     )
     cat_pipeline = Pipeline(
         [
-            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("imputer", cat_imputer),
             ("encoder", OneHotEncoder(drop="first", handle_unknown="ignore")),
         ]
     )

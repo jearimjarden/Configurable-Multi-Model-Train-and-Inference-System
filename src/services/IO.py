@@ -104,10 +104,10 @@ def create_report(
             "allow missing features": allow_missing_features,
             "threshold": threshold,
             "timestamp": datetime.now().strftime("%d/%m%Y, %H:%M:%S"),
-            "predictions": [
-                {"prediction": pred, "probability": proba} for pred, proba in prediction
-            ],
-        }
+        },
+        "predictions": [
+            {"prediction": pred, "probability": proba} for pred, proba in prediction
+        ],
     }
 
     with open(Path(save_dir) / save_name, "w") as f:

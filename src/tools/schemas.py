@@ -23,6 +23,11 @@ class ModelType(Enum):
     RANDOM_FOREST = RandomForestClassifier
 
 
+class InferenceStrategy(str, Enum):
+    MOST_FREQUENT = "most_frequent"
+    CONSTANT = "constant"
+
+
 class ConfigData(BaseModel):
     train_path: str = Field(...)
     inference_path: str = Field(...)
@@ -51,6 +56,7 @@ class ConfigTrain(BaseModel):
     true_value: str = Field(...)
     drop_features: list = Field(...)
     selection_metrics: str = Field(...)
+    missing_strategy: InferenceStrategy = Field(...)
     model_config = ConfigDict(extra="forbid")
 
 

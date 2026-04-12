@@ -57,7 +57,9 @@ class TrainingPipeline:
             true_value=self.config.train.true_value,
             drop_features=self.config.train.drop_features,
         )
-        preprocessor = create_preprocessor(X=X)
+        preprocessor = create_preprocessor(
+            X=X, missing_strategy=self.config.train.missing_strategy
+        )
         return ((X, y), preprocessor)
 
     def evaluate(

@@ -31,10 +31,14 @@ class InferencePipeline:
         self.save_prediction(prediction=prediction)
 
     def load_metadata(self) -> Metadata:
-        return load_metadata(
+        metadata = load_metadata(
             load_dir=self.config.inference.load_dir,
             metadata_name=self.config.inference.metadata_name,
         )
+        if not hasattr(metadata, "model"):
+            raise ArtifactError("Invalid Artifact")
+
+        return metadata
 
     def load_artifact(self, metadata: Metadata) -> Artifact:
         return load_artifact(
