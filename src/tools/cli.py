@@ -1,7 +1,7 @@
 import argparse
 
 
-def cli_parser() -> argparse.Namespace:
+def parse_cli() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--logger",
@@ -11,6 +11,6 @@ def cli_parser() -> argparse.Namespace:
         choices=["debug", "info", "warning", "error", "critical"],
         type=str.lower,
     )
-    data_parsed = parser.parse_args()
+    parsed_data = parser.parse_args()
 
-    return data_parsed
+    return parsed_data

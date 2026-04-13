@@ -1,10 +1,10 @@
-from ..tools.schemas import InferenceStrategy
-from ..tools.exceptions import DropColumnsInvalid, TargetColumnInvalid, TrueValueInvalid
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-import pandas as pd
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+import pandas as pd
+from ..tools.schemas import InferenceStrategy
+from ..tools.exceptions import DropColumnsError, TargetColumnError, PositiveValueError
 
 
 def create_preprocessor(
@@ -34,28 +34,28 @@ def create_preprocessor(
 
 
 def split_data(
-    df: pd.DataFrame, target_col: str, true_value: str, drop_features: list
+    df: pd.DataFrame, target_col: str, positif_value: str, drop_features: list
 ) -> tuple[pd.DataFrame, pd.Series]:
     if target_col not in df.columns.tolist():
-        raise TargetColumnInvalid("Target Columns Does not Exist")
+        raise TargetColumnError("Target Columns Does not Exist")
     if not set(drop_features).issubset(set(df)):
-        raise DropColumnsInvalid("Drop Features are not Exist in Training Dataset")
-    if true_value not in df[target_col].unique():
-        raise TrueValueInvalid("True Value Does not Exist in Target Column")
+        raise DropColumnsError("Drop Features are not Exist in Training Dataset")
+    if positif_value not in df[target_col].unique():
+        raise PositiveValueError("True Value Does not Exist in Target Column")
 
-    unique_value = df[target_col].dropna().unique().tolist()
-    if len(unique_value) > 2:
-        raise TargetColumnInvalid("Target Column's Value Is not Binary")
+    unique_target_value = df[target_col].dropna().unique().tolist()
+    if len(unique_target_value) > 2:
+        raise TargetColumnError("Target Column's Value Is not Binary")
 
-    false_value = list(set(unique_value) - set(true_value))
-    y = df[target_col].map({true_value: 1, false_value[0]: 0})
+    negative_value = list(set(unique_target_value) - set(positif_value))
+    y = df[target_col].map({positif_value: 1, negative_value[0]: 0})
 
     features_to_drop = drop_features + [target_col]
     X = df.drop(features_to_drop, axis=1)
     return (X, y)
 
 
-def align_data_schemas(
+def align_data(
     data: pd.DataFrame, extra_columns: set, missing_columns: set, metadata_columns: list
 ) -> pd.DataFrame:
     data = data.drop(list(extra_columns), axis=1)

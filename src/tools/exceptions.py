@@ -2,11 +2,11 @@ class ConfigError(Exception):
     pass
 
 
-class ConfigInvalid(ConfigError):
+class ConfigInvalidError(ConfigError):
     pass
 
 
-class ConfigNotExists(ConfigError):
+class ConfigNotExistsError(ConfigError):
     pass
 
 
@@ -14,15 +14,15 @@ class DataError(Exception):
     pass
 
 
-class DataNotExists(DataError):
+class DataNotExistsError(DataError):
     pass
 
 
-class DataInvalidExtension(DataError):
+class DataExtensionError(DataError):
     pass
 
 
-class DataEmpty(DataError):
+class DataEmptyError(DataError):
     pass
 
 
@@ -30,27 +30,27 @@ class PreprocessError(Exception):
     pass
 
 
-class TargetColumnInvalid(PreprocessError):
+class TargetColumnError(PreprocessError):
     pass
 
 
-class TrueValueInvalid(PreprocessError):
+class PositiveValueError(PreprocessError):
     pass
 
 
-class DropColumnsInvalid(PreprocessError):
+class DropColumnsError(PreprocessError):
     pass
 
 
-class TrainError(Exception):
+class TrainingError(Exception):
     pass
 
 
-class MetricsInvalid(TrainError):
+class MetricsInvalidError(TrainingError):
     pass
 
 
-class ParamInvalid(TrainError):
+class ParamsInvalidError(TrainingError):
     pass
 
 
@@ -66,5 +66,5 @@ class ArtifactError(InferenceError):
     pass
 
 
-class MissingColumns(InferenceError):
+class ColumnsMissingError(InferenceError):
     pass

@@ -1,22 +1,22 @@
+import logging
+import sys
 from ..tools.exceptions import (
     ConfigError,
     DataError,
     PreprocessError,
-    TrainError,
+    TrainingError,
 )
-from ..tools.cli import cli_parser
-from ..tools.logging import logging_setup
-from ..tools.loader import config_load
-from ..pipeline.training import TrainingPipeline
-import logging
-import sys
+from ..tools.cli import parse_cli
+from ..tools.logging import setup_logging
+from ..tools.loader import load_config
+from ..pipelines.training_pipeline import TrainingPipeline
 
 
 def main(logger: logging.Logger):
     try:
         logger.info("Starting training module")
 
-        config = config_load()
+        config = load_config()
         logger.info("Config loaded")
 
         pipeline = TrainingPipeline.from_config(config=config, logger=logger)
@@ -32,7 +32,7 @@ def main(logger: logging.Logger):
         ConfigError,
         DataError,
         PreprocessError,
-        TrainError,
+        TrainingError,
     ) as e:
         logger.error(str(e))
         sys.exit(1)
@@ -43,7 +43,7 @@ def main(logger: logging.Logger):
 
 
 if __name__ == "__main__":
-    cli_data = cli_parser()
-    logging_setup(cli_data.logger)
+    cli_data = parse_cli()
+    setup_logging(cli_data.logger)
     logger = logging.getLogger(__name__)
     main(logger)

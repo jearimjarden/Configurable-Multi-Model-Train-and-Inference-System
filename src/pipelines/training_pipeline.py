@@ -3,10 +3,10 @@ from typing import TypeVar, Type
 import logging
 import uuid
 import pandas as pd
-from ..tools.schemas import Config, FittedModel
+from ..tools.schemas import Config, FittedModelPipeline
 from ..services.data_loader import load_data
 from ..services.preprocessor import create_preprocessor, split_data
-from ..services.models import cross_validation, fit_model
+from ..services.models import cross_validate_data, fit_model
 from ..services.IO import create_artifact, create_metadata
 
 
@@ -21,22 +21,26 @@ class TrainingPipeline:
             f"Training data loaded from {self.config.data.train_path} with {total_rows} rows and {total_cols} columns"
         )
 
-        (X, y), preprocessor = self.preprocess(data=data)
+        X, y = self.split_data(data=data)
+        preprocessor = self.create_preprocessor(X=X)
         self.logger.info("Data preprocessed")
 
-        report = self.evaluate(y=y, X=X, preprocessor=preprocessor)
+        evaluation_report = self.evaluate_models(y=y, X=X, preprocessor=preprocessor)
         self.logger.info(
             f"Evaluated with n_fold: {self.config.train.n_cv}, selection_metrics: {self.config.train.selection_metrics}, stratify: {self.config.train.stratify}, random_seed: {self.config.train.random_seed}"
         )
 
-        fitted_model = self.fit_model(preprocessor=preprocessor, X=X, y=y)
+        fitted_pipelines = self.train_models(preprocessor=preprocessor, X=X, y=y)
         self.logger.info(
-            f"Successfully fit model: {[model["name"] for model in fitted_model]}"
+            f"Successfully fit model: {[model["name"] for model in fitted_pipelines]}"
         )
 
-        best_model = self._best_model(report=report)
-        self._artifact_handler(
-            fitted_model=fitted_model, X=X, report=report, best_model=best_model
+        best_model = self._select_best_model(evaluation_report=evaluation_report)
+        self.handle_artifact_and_metadata(
+            fitted_pipelines=fitted_pipelines,
+            X=X,
+            evaluation_report=evaluation_report,
+            best_model_name=best_model,
         )
         self.logger.info(
             f"Artifact and metadata saved in '{self.config.artifact.save_dir}', saved best only: {self.config.artifact.only_best}"
@@ -48,24 +52,25 @@ class TrainingPipeline:
         total_columns = data.shape[1]
         return data, total_rows, total_columns
 
-    def preprocess(
-        self, data: pd.DataFrame
-    ) -> tuple[tuple[pd.DataFrame, pd.Series], ColumnTransformer]:
+    def split_data(self, data: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
         X, y = split_data(
             df=data,
             target_col=self.config.train.target_col,
-            true_value=self.config.train.true_value,
+            positif_value=self.config.train.true_value,
             drop_features=self.config.train.drop_features,
         )
+        return (X, y)
+
+    def create_preprocessor(self, X: pd.DataFrame) -> ColumnTransformer:
         preprocessor = create_preprocessor(
             X=X, missing_strategy=self.config.train.missing_strategy
         )
-        return ((X, y), preprocessor)
+        return preprocessor
 
-    def evaluate(
+    def evaluate_models(
         self, y: pd.Series, X: pd.DataFrame, preprocessor: ColumnTransformer
     ) -> dict[str, dict]:
-        report = cross_validation(
+        evaluation_report = cross_validate_data(
             preprocessor=preprocessor,
             X=X,
             y=y,
@@ -75,11 +80,11 @@ class TrainingPipeline:
             stratify=self.config.train.stratify,
             models=self.config.train.model,
         )
-        return report
+        return evaluation_report
 
-    def fit_model(
+    def train_models(
         self, preprocessor: ColumnTransformer, X: pd.DataFrame, y: pd.Series
-    ) -> list[FittedModel]:
+    ) -> list[FittedModelPipeline]:
         fitted_model = fit_model(
             preprocessor=preprocessor,
             X=X,
@@ -89,48 +94,56 @@ class TrainingPipeline:
         )
         return fitted_model
 
-    def _artifact_handler(
+    def handle_artifact_and_metadata(
         self,
-        fitted_model: list[FittedModel],
+        fitted_pipelines: list[FittedModelPipeline],
         X: pd.DataFrame,
-        report: dict[str, dict],
-        best_model: str,
-    ):
+        evaluation_report: dict[str, dict],
+        best_model_name: str,
+    ) -> None:
         if not self.config.artifact.only_best:
-            for model in fitted_model:
-                id = str(uuid.uuid4())
+            for pipeline in fitted_pipelines:
+                str_uuid = self._create_uuid()
                 save_name = (
-                    f"best_{model['name']}"
-                    if model["name"] == best_model
-                    else model["name"]
+                    f"best_{pipeline['name']}"
+                    if pipeline["name"] == best_model_name
+                    else pipeline["name"]
                 )
-                self.save_artifact(fitted_model=model, uuid=id, save_name=save_name)
+                self.save_artifact(
+                    fitted_pipeline=pipeline, uuid=str_uuid, save_name=save_name
+                )
                 self.save_metadata(
                     X=X,
-                    report=report[model["name"]],
-                    model_name=model["name"],
-                    uuid=id,
+                    evaluation_report=evaluation_report[pipeline["name"]],
+                    model_name=pipeline["name"],
+                    uuid=str_uuid,
                     save_name=save_name,
                 )
         else:
-            id = str(uuid.uuid4())
-            model = next(model for model in fitted_model if model["name"] == best_model)
-            save_name = f"best_{model['name']}"
-            self.save_artifact(fitted_model=model, uuid=id, save_name=save_name)
+            str_uuid = self._create_uuid()
+            pipeline = next(
+                pipeline
+                for pipeline in fitted_pipelines
+                if pipeline["name"] == best_model_name
+            )
+            save_name = f"best_{pipeline['name']}"
+            self.save_artifact(
+                fitted_pipeline=pipeline, uuid=str_uuid, save_name=save_name
+            )
             self.save_metadata(
                 X=X,
-                report=report[model["name"]],
-                model_name=model["name"],
-                uuid=id,
+                evaluation_report=evaluation_report[pipeline["name"]],
+                model_name=pipeline["name"],
+                uuid=str_uuid,
                 save_name=save_name,
             )
 
     def save_artifact(
-        self, fitted_model: FittedModel, uuid: str, save_name: str
+        self, fitted_pipeline: FittedModelPipeline, uuid: str, save_name: str
     ) -> None:
         create_artifact(
             save_name=save_name,
-            fitted_model=fitted_model,
+            fitted_pipeline=fitted_pipeline,
             save_dir=self.config.artifact.save_dir,
             uuid=uuid,
         )
@@ -138,18 +151,18 @@ class TrainingPipeline:
     def save_metadata(
         self,
         X: pd.DataFrame,
-        report: dict[str, dict],
+        evaluation_report: dict[str, dict],
         model_name: str,
         uuid: str,
         save_name: str,
     ) -> None:
         create_metadata(
             save_name=save_name,
-            uuid=uuid,
+            str_uuid=uuid,
             save_dir=self.config.artifact.save_dir,
             features_col=X.columns.tolist(),
-            report=report,
-            target_col=self.config.train.target_col,
+            evaluation_report=evaluation_report,
+            target_columns=self.config.train.target_col,
             train_data=self.config.data.train_path,
             n_samples=X.shape[0],
             stratify=self.config.train.stratify,
@@ -161,10 +174,10 @@ class TrainingPipeline:
     def _create_uuid(self):
         return str(uuid.uuid4())
 
-    def _best_model(self, report: dict[str, dict]) -> str:
+    def _select_best_model(self, evaluation_report: dict[str, dict]) -> str:
         return max(
-            report,
-            key=lambda x: report[x][
+            evaluation_report,
+            key=lambda x: evaluation_report[x][
                 "test_{}".format(self.config.train.selection_metrics)
             ],
         )

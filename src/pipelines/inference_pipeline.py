@@ -4,11 +4,11 @@ import logging
 import uuid
 import os
 from pathlib import Path
-from ..tools.exceptions import ArtifactError, MissingColumns
+from ..tools.exceptions import ArtifactError, ColumnsMissingError
 from ..tools.schemas import Artifact, Config, Metadata
-from ..services.IO import create_report, load_metadata, load_artifact
+from ..services.IO import create_prediction_report, load_metadata, load_artifact
 from ..services.data_loader import load_data
-from ..services.preprocessor import align_data_schemas
+from ..services.preprocessor import align_data
 from ..services.models import predict_model
 
 
@@ -24,10 +24,18 @@ class InferencePipeline:
         self.logger.info("Metadata and artifact loaded and validated")
 
         data = self.load_data()
-        data = self._validate_data(metadata=metadata, data=data)
+        missing_columns, extra_columns = self._validate_data(
+            metadata=metadata, data=data
+        )
+        aligned_data = self.align_data(
+            missing_columns=missing_columns,
+            extra_columns=extra_columns,
+            data=data,
+            metadata=metadata,
+        )
         self.logger.info("Data are validated and aligned")
 
-        prediction = self.predict(data=data, artifact=artifact)
+        prediction = self.predict_data(data=aligned_data, artifact=artifact)
         self.save_prediction(prediction=prediction)
 
     def load_metadata(self) -> Metadata:
@@ -36,7 +44,9 @@ class InferencePipeline:
             metadata_name=self.config.inference.metadata_name,
         )
         if not hasattr(metadata, "model"):
-            raise ArtifactError("Invalid Artifact")
+            raise ArtifactError(
+                f"Artifact: {self.config.inference.metadata_name} does not contain fitted pipeline"
+            )
 
         return metadata
 
@@ -50,29 +60,38 @@ class InferencePipeline:
         data = load_data(self.config.data.inference_path)
         return data
 
-    def _validate_data(self, data: pd.DataFrame, metadata: Metadata) -> pd.DataFrame:
+    def _validate_data(self, data: pd.DataFrame, metadata: Metadata) -> tuple[set, set]:
         metadata_columns = set(metadata.training.features_col)
         data_columns = set(data.columns)
         missing_columns = metadata_columns - data_columns
         extra_columns = data_columns - metadata_columns
 
         if not self.config.inference.allow_missing_features and missing_columns:
-            raise MissingColumns(
-                f"Missing Columns are not allowed, {list(missing_columns)}"
+            raise ColumnsMissingError(
+                f"Missing Columns are not allowed: {list(missing_columns)}"
             )
-        else:
-            data = align_data_schemas(
-                data=data,
-                extra_columns=extra_columns,
-                missing_columns=missing_columns,
-                metadata_columns=metadata.training.features_col,
-            )
-            self.logger.info(
-                f"imputed columns: {missing_columns}, dropped features: {extra_columns}"
-            )
-            return data
 
-    def predict(self, artifact: Artifact, data: pd.DataFrame):
+        return missing_columns, extra_columns
+
+    def align_data(
+        self,
+        missing_columns: set,
+        extra_columns: set,
+        data: pd.DataFrame,
+        metadata: Metadata,
+    ) -> pd.DataFrame:
+        data = align_data(
+            data=data,
+            extra_columns=extra_columns,
+            missing_columns=missing_columns,
+            metadata_columns=metadata.training.features_col,
+        )
+        self.logger.info(
+            f"imputed columns: {missing_columns}, dropped features: {extra_columns}"
+        )
+        return data
+
+    def predict_data(self, artifact: Artifact, data: pd.DataFrame):
         return predict_model(
             artifact=artifact,
             data=data,
@@ -87,9 +106,9 @@ class InferencePipeline:
             i += 1
         save_name = f"{save_name}_{i}.json"
 
-        create_report(
+        create_prediction_report(
             save_name=save_name,
-            uuid=str(uuid.uuid4()),
+            str_uuid=self._create_uuid(),
             prediction=prediction,
             metadata_name=self.config.inference.metadata_name,
             allow_missing_features=self.config.inference.allow_missing_features,
@@ -100,9 +119,12 @@ class InferencePipeline:
             f"{save_name} saved in {self.config.inference.inference_report_path}"
         )
 
+    def _create_uuid(self) -> str:
+        return str(uuid.uuid4())
+
     def _artifact_validation(self, artifact: Artifact, metadata: Metadata):
         if artifact["uuid"] != metadata.run.uuid:
-            raise ArtifactError("Metadata doesnt match the artifact")
+            raise ArtifactError("Metadata's UUID doesnt match the artifact's UUID")
 
     T = TypeVar("T", bound="InferencePipeline")
 

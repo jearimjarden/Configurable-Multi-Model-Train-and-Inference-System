@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from ..tools.schemas import (
     Artifact,
     ConfigTrainModel,
-    FittedModel,
+    FittedModelPipeline,
     Metadata,
 )
 from ..tools.exceptions import ArtifactError, MetadataError
@@ -15,14 +15,12 @@ from ..tools.exceptions import ArtifactError, MetadataError
 
 def create_artifact(
     save_name: str,
-    fitted_model: FittedModel,
+    fitted_pipeline: FittedModelPipeline,
     save_dir: str,
     uuid: str,
 ) -> None:
     os.makedirs(save_dir, exist_ok=True)
-
-    pipeline = fitted_model["model"]
-    artifact = {"uuid": uuid, "pipeline": pipeline}
+    artifact = {"uuid": uuid, "pipeline": fitted_pipeline["model"]}
 
     with open(f"{save_dir}/{save_name}.pkl", "wb") as f:
         pickle.dump(artifact, f)
@@ -31,22 +29,22 @@ def create_artifact(
 def create_metadata(
     save_name: str,
     save_dir: str,
-    report: dict,
+    evaluation_report: dict,
     train_data: str,
     n_samples: int,
     stratify: bool,
-    target_col: str,
+    target_columns: str,
     features_col: list,
     random_seed: int,
     model_name: str,
-    uuid: str,
+    str_uuid: str,
     models: dict[str, ConfigTrainModel],
 ) -> None:
     os.makedirs(save_dir, exist_ok=True)
 
     metadata_report = {
         "run": {
-            "uuid": uuid,
+            "uuid": str_uuid,
             "artifact_name": f"{save_name}.pkl",
             "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
         },
@@ -55,7 +53,7 @@ def create_metadata(
             "params": models[model_name].params,
         },
         "training": {
-            "target_col": target_col,
+            "target_col": target_columns,
             "features_col": features_col,
             "stratify": stratify,
             "random_seed": random_seed,
@@ -64,32 +62,57 @@ def create_metadata(
             "train_data": train_data,
             "n_samples": n_samples,
         },
-        "metrics": report,
+        "metrics": evaluation_report,
     }
     with open(f"{save_dir}/{save_name}.json", "w") as f:
         json.dump(metadata_report, f, indent=4)
 
 
 def load_metadata(load_dir: str, metadata_name: str) -> Metadata:
-    with open(Path(load_dir) / metadata_name, "r") as f:
+    metadata_path = Path(load_dir) / metadata_name
+    with open(metadata_path, "r") as f:
         data = json.load(f)
         try:
             return Metadata(**data)
-        except (ValidationError, KeyError):
-            raise MetadataError("Invalid Metadata Structure or Value")
+
+        except FileNotFoundError:
+            raise MetadataError(f"Cannot find metadata at '{metadata_path.resolve()}'")
+
+        except ValidationError as e:
+            messages = []
+            for err in e.errors():
+                field = ".".join(str(x) for x in err["loc"])
+                if err["type"] == "missing":
+                    messages.append(f"Missing '{field}' in metadata")
+                elif err["type"] == "extra_forbidden":
+                    messages.append(f"Extra params are not allowed: '{field}'")
+                else:
+                    messages.append(
+                        f"Invalid parameter's value type for '{field}': {err["msg"]}"
+                    )
+
+            raise MetadataError(" | ".join(message for message in messages)) from e
 
 
 def load_artifact(load_dir: str, artifact_name: str) -> Artifact:
-    with open(Path(load_dir) / artifact_name, "rb") as f:
-        try:
+    artifact_path = Path(load_dir) / artifact_name
+
+    try:
+        with open(artifact_path, "rb") as f:
             return pickle.load(f)
-        except Exception:
-            raise ArtifactError("Could not Load Artifact")
+
+    except FileNotFoundError:
+        raise ArtifactError(f"Cannot find artifact at {artifact_path.resolve()}")
+
+    except Exception as e:
+        raise ArtifactError(
+            f"Unexpected error occured while loading artifact at {artifact_path.resolve()}"
+        ) from e
 
 
-def create_report(
+def create_prediction_report(
     save_name: str,
-    uuid: str,
+    str_uuid: str,
     prediction: list[tuple[float, int]],
     metadata_name: str,
     allow_missing_features: bool,
@@ -97,13 +120,14 @@ def create_report(
     save_dir: str,
 ) -> None:
     os.makedirs(save_dir, exist_ok=True)
+
     report = {
         "metadata": {
-            "uuid": uuid,
+            "uuid": str_uuid,
             "metadata name": metadata_name,
             "allow missing features": allow_missing_features,
             "threshold": threshold,
-            "timestamp": datetime.now().strftime("%d/%m%Y, %H:%M:%S"),
+            "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
         },
         "predictions": [
             {"prediction": pred, "probability": proba} for pred, proba in prediction

@@ -1,21 +1,21 @@
 import sys
-from ..tools.cli import cli_parser
-from ..tools.logging import logging_setup
 import logging
+from ..tools.cli import parse_cli
+from ..tools.logging import setup_logging
 from ..tools.exceptions import (
     ConfigError,
     InferenceError,
     DataError,
 )
-from ..tools.loader import config_load
-from ..pipeline.inferencing import InferencePipeline
+from ..tools.loader import load_config
+from ..pipelines.inference_pipeline import InferencePipeline
 
 
 def main(logger: logging.Logger):
     try:
         logger.info("Starting inference module")
 
-        config = config_load()
+        config = load_config()
         logger.info("Config loaded")
 
         pipeline = InferencePipeline.from_config(config=config, logger=logger)
@@ -40,7 +40,7 @@ def main(logger: logging.Logger):
 
 
 if __name__ == "__main__":
-    cli_data = cli_parser()
-    logging_setup(cli_data.logger)
+    cli_data = parse_cli()
+    setup_logging(cli_data.logger)
     logger = logging.getLogger(__name__)
     main(logger=logger)

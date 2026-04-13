@@ -13,7 +13,7 @@ class Artifact(TypedDict):
     pipeline: Pipeline
 
 
-class FittedModel(TypedDict):
+class FittedModelPipeline(TypedDict):
     name: str
     model: Pipeline
 

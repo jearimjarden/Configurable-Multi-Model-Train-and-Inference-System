@@ -40,7 +40,7 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_record)
 
 
-def logging_setup(level: str) -> None:
+def setup_logging(level: str) -> None:
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
     streamer = logging.StreamHandler()

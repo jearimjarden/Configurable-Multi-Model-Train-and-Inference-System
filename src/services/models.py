@@ -1,16 +1,17 @@
-from ..tools.exceptions import MetricsInvalid, ParamInvalid
-from ..tools.schemas import Artifact, ConfigTrainModel, FittedModel
-from sklearn.compose import ColumnTransformer
 from typing import Type
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import KFold, cross_validate, StratifiedKFold
-from sklearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator
-from sklearn.tree import DecisionTreeClassifier
 import pandas as pd
+from sklearn.base import BaseEstimator
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import KFold, StratifiedKFold, cross_validate
+from sklearn.pipeline import Pipeline
+from sklearn.tree import DecisionTreeClassifier
+from ..tools.exceptions import MetricsInvalidError, ParamsInvalidError
+from ..tools.schemas import Artifact, ConfigTrainModel, FittedModelPipeline
 
 
 def select_model(
+    name: str,
     preprocessor: ColumnTransformer,
     model: Type[BaseEstimator],
     params: dict[str, int],
@@ -20,18 +21,21 @@ def select_model(
         params["random_state"] = random_seed
     try:
         return Pipeline([("preprocessor", preprocessor), ("model", model(**params))])
-    except TypeError:
-        raise ParamInvalid("Invalid Model Parameter")
+
+    except TypeError as e:
+        raise ParamsInvalidError(f"Invalid parameter for '{name}': '{params}'") from e
 
 
-def cv_params(stratify, random_seed, n_cv) -> StratifiedKFold | KFold:
+def select_cv_params(
+    stratify: bool, random_seed: int, n_cv: int
+) -> StratifiedKFold | KFold:
     if stratify:
         return StratifiedKFold(n_splits=n_cv, shuffle=True, random_state=random_seed)
     else:
         return KFold(n_splits=n_cv, shuffle=True, random_state=random_seed)
 
 
-def cross_validation(
+def cross_validate_data(
     preprocessor: ColumnTransformer,
     X: pd.DataFrame,
     y: pd.Series,
@@ -43,45 +47,51 @@ def cross_validation(
 ) -> dict[str, dict]:
     report = {}
 
-    for key, value in models.items():
+    for name, model in models.items():
         try:
+            pipeline = select_model(
+                name=name,
+                preprocessor=preprocessor,
+                model=model.type.value,
+                params=model.params,
+                random_seed=random_seed,
+            )
             scores = cross_validate(
-                select_model(
-                    preprocessor=preprocessor,
-                    model=value.type.value,
-                    params=value.params,
-                    random_seed=random_seed,
-                ),
+                pipeline,
                 X=X,
                 y=y,
                 scoring=[selection_metrics],
-                cv=cv_params(stratify=stratify, random_seed=random_seed, n_cv=n_cv),
+                cv=select_cv_params(
+                    stratify=stratify, random_seed=random_seed, n_cv=n_cv
+                ),
                 return_train_score=True,
             )
 
-            report[key] = {
-                "train_{}".format(selection_metrics): float(
-                    scores[("train_{}".format(selection_metrics))].mean()
+            report[name] = {
+                f"train_{selection_metrics}": round(
+                    scores[("train_{}".format(selection_metrics))].mean(), 2
                 ),
-                "test_{}".format(selection_metrics): float(
-                    scores[("test_{}".format(selection_metrics))].mean()
+                f"test_{selection_metrics}": round(
+                    scores[("test_{}".format(selection_metrics))].mean(), 2
                 ),
-                "gap_{}".format(selection_metrics): float(
-                    scores[("train_{}".format(selection_metrics))].mean()
-                    - scores[("test_{}".format(selection_metrics))].mean()
+                f"gap_{selection_metrics}": round(
+                    (
+                        scores[("train_{}".format(selection_metrics))].mean()
+                        - scores[("test_{}".format(selection_metrics))].mean()
+                    ),
+                    2,
                 ),
-                "{}_std".format(selection_metrics): float(
-                    scores[("test_{}".format(selection_metrics))].std()
+                "f{selection_metrics}_std": round(
+                    scores[("test_{}".format(selection_metrics))].std(), 2
                 ),
             }
-        except ValueError as e:
-            if "_validate_params" in str(e):
-                raise ParamInvalid("Invalid Model Parameter's Value")
 
-            elif "not a valid scoring value" in str(e):
-                raise MetricsInvalid(
-                    "Selection Metric: {} is Invalid".format(selection_metrics)
-                )
+        except ValueError as e:
+            if "not a valid scoring value" in str(e):
+                raise MetricsInvalidError(
+                    f"Selection Metric: {selection_metrics} is invalid"
+                ) from e
+            raise
 
     return report
 
@@ -92,19 +102,21 @@ def fit_model(
     y: pd.Series,
     random_seed: int,
     models: dict[str, ConfigTrainModel],
-) -> list[FittedModel]:
-    fitted_model = []
-    for key, value in models.items():
-        model = select_model(
+) -> list[FittedModelPipeline]:
+    fitted_model_pipeline = []
+
+    for name, model in models.items():
+        selected_model = select_model(
+            name=name,
             preprocessor=preprocessor,
-            model=value.type.value,
-            params=value.params,
+            model=model.type.value,
+            params=model.params,
             random_seed=random_seed,
         )
 
-        fitted_model.append(dict(name=key, model=model.fit(X, y)))
+        fitted_model_pipeline.append(dict(name=name, model=selected_model.fit(X, y)))
 
-    return fitted_model
+    return fitted_model_pipeline
 
 
 def predict_model(
