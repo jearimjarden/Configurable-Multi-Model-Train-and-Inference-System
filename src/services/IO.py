@@ -3,14 +3,42 @@ import os
 from pathlib import Path
 from datetime import datetime
 import json
+from typing import Type
 from pydantic import ValidationError
+import logging
+import pandas as pd
 from ..tools.schemas import (
     Artifact,
     ConfigTrainModel,
     FittedModelPipeline,
     Metadata,
 )
-from ..tools.exceptions import ArtifactError, MetadataError
+from ..tools.exceptions import (
+    ArtifactError,
+    FeatureTypeError,
+    InputJSONError,
+    MetadataError,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def infer_semantic(X: pd.DataFrame) -> dict:
+    X_cat = X.select_dtypes(include=["object", "category"])
+    semantics_columns = {}
+    for x in X_cat:
+        if str(x).lower().endswith("id"):
+            semantic = "ID"
+        elif X_cat[x].nunique() / len(X_cat[x]) < 0.1:
+            semantic = "categorial"
+        else:
+            semantic = "text"
+        semantics_columns[x] = semantic
+
+    X_num = X.select_dtypes(exclude=["object", "category"])
+    for x in X_num:
+        semantics_columns[x] = "numerical"
+    return semantics_columns
 
 
 def create_artifact(
@@ -35,6 +63,7 @@ def create_metadata(
     stratify: bool,
     target_columns: str,
     features_col: list,
+    features_name_and_type: dict,
     random_seed: int,
     model_name: str,
     str_uuid: str,
@@ -55,6 +84,7 @@ def create_metadata(
         "training": {
             "target_col": target_columns,
             "features_col": features_col,
+            "features_name_and_type": features_name_and_type,
             "stratify": stratify,
             "random_seed": random_seed,
         },
@@ -118,7 +148,8 @@ def create_prediction_report(
     allow_missing_features: bool,
     threshold: float,
     save_dir: str,
-) -> None:
+    save_result: bool,
+) -> dict:
     os.makedirs(save_dir, exist_ok=True)
 
     report = {
@@ -134,5 +165,42 @@ def create_prediction_report(
         ],
     }
 
-    with open(Path(save_dir) / save_name, "w") as f:
-        json.dump(report, f, indent=4)
+    if save_result:
+        with open(Path(save_dir) / save_name, "w") as f:
+            json.dump(report, f, indent=4)
+
+    return report
+
+
+def validate_input(normalized_data_input: list, input_schemas: Type) -> list[Type]:
+    validated_input = []
+    try:
+        for input in normalized_data_input:
+            missing_columns = set(input_schemas.model_fields.keys() - set(input.keys()))
+            extra_columns = set(set(input.keys()) - input_schemas.model_fields.keys())
+
+            logger.info(
+                f"missing columns: '{list(missing_columns)}', extra columns: '{list(extra_columns)}"
+            )
+            validated_input.append(input_schemas(**input))
+
+        return validated_input
+
+    except json.JSONDecodeError as e:
+        raise InputJSONError(f"Invalid JSON input: {e}") from e
+
+    except ValidationError as e:
+        messages = []
+        for err in e.errors():
+            fields = ".".join(str(x) for x in err["loc"])
+
+            if err["type"] == "missing":
+                messages.append(
+                    FeatureTypeError(f"Missing features in data input: '{fields}'")
+                )
+            else:
+                messages.append(
+                    FeatureTypeError(f"Invalid value for '{fields}': {err['msg']}")
+                )
+
+        raise FeatureTypeError(" | ".join(str(message) for message in messages)) from e

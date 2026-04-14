@@ -1,8 +1,8 @@
 {
     "run": {
-        "uuid": "69ee73c6-c25a-4b5a-8251-4ca07b8bebba",
+        "uuid": "a1b3bb6d-7b3c-49d6-9070-16752cdfa774",
         "artifact_name": "best_random_forest.pkl",
-        "timestamp": "12/04/2026, 15:39:51"
+        "timestamp": "14/04/2026, 17:16:46"
     },
     "model": {
         "type": "RANDOM_FOREST",
@@ -26,6 +26,52 @@
             "Credit_History",
             "Property_Area"
         ],
+        "features_name_and_type": {
+            "Gender": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "Married": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "Dependents": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "Education": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "Self_Employed": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "ApplicantIncome": {
+                "type": "int64",
+                "semantic": "numerical"
+            },
+            "CoapplicantIncome": {
+                "type": "float64",
+                "semantic": "numerical"
+            },
+            "LoanAmount": {
+                "type": "float64",
+                "semantic": "numerical"
+            },
+            "Loan_Amount_Term": {
+                "type": "float64",
+                "semantic": "numerical"
+            },
+            "Credit_History": {
+                "type": "float64",
+                "semantic": "numerical"
+            },
+            "Property_Area": {
+                "type": "str",
+                "semantic": "categorial"
+            }
+        },
         "stratify": true,
         "random_seed": 42
     },
@@ -34,9 +80,9 @@
         "n_samples": 614
     },
     "metrics": {
-        "train_roc_auc": 0.9312323961215567,
-        "test_roc_auc": 0.7543151241603254,
-        "gap_roc_auc": 0.1769172719612313,
-        "roc_auc_std": 0.021457904718218356
+        "train_average_precision": 0.964,
+        "test_average_precision": 0.859,
+        "gap_average_precision": 0.1059,
+        "f{selection_metrics}_std": 0.015
     }
 }

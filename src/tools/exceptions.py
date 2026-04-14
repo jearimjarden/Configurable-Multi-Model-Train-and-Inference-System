@@ -68,3 +68,11 @@ class ArtifactError(InferenceError):
 
 class ColumnsMissingError(InferenceError):
     pass
+
+
+class FeatureTypeError(InferenceError):
+    pass
+
+
+class InputJSONError(InferenceError):
+    pass

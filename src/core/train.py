@@ -24,6 +24,7 @@ def main(logger: logging.Logger):
 
         logger.info("Starting training pipeline")
         pipeline.run()
+        # pipeline.test()
 
         logger.info("Exiting training module")
         sys.exit(0)

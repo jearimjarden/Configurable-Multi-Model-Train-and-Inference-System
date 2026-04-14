@@ -1,11 +1,11 @@
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, create_model
 from enum import Enum
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeClassifier
-from typing import TypedDict
-from ..tools.exceptions import ConfigError
+from typing import Optional, TypedDict
+from ..tools.exceptions import ConfigError, FeatureTypeError
 
 
 class Artifact(TypedDict):
@@ -67,6 +67,8 @@ class ConfigInference(BaseModel):
     allow_missing_features: bool = Field(...)
     inference_report_path: str = Field(...)
     threshold: float = Field(0.5, ge=0, le=1)
+    save_result: bool = Field(False)
+    service: bool = Field(True)
     model_config = ConfigDict(extra="forbid")
 
 
@@ -100,6 +102,7 @@ class MetadataModel(BaseModel):
 class MetadataTraining(BaseModel):
     target_col: str = Field(...)
     features_col: list = Field(...)
+    features_name_and_type: dict[str, dict] = Field(...)
     stratify: bool = Field(...)
     random_seed: int = Field(...)
     model_config = ConfigDict(extra="forbid")
@@ -118,3 +121,24 @@ class Metadata(BaseModel):
     data: MetadataData = Field(...)
     metrics: dict[str, float] = Field(...)
     model_config = ConfigDict(extra="forbid")
+
+
+TYPE_MAP = {"int64": int, "float64": float, "str": str}
+
+
+def create_pydantic_from_metadata(
+    metadata_features_col: dict[str, dict], model_name: str
+) -> type:
+    fields = {}
+
+    for feature in metadata_features_col:
+        base_type = TYPE_MAP.get(metadata_features_col[feature]["type"])
+
+        if base_type is None:
+            raise FeatureTypeError(
+                f"Unrecognized feature data type: name={feature} type={metadata_features_col[feature]['type']}"
+            )
+
+        fields[feature] = (Optional[base_type], None)
+
+    return create_model(model_name, **fields, __config__=ConfigDict(extra="ignore"))

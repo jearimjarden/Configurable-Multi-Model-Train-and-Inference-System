@@ -56,10 +56,8 @@ def split_data(
 
 
 def align_data(
-    data: pd.DataFrame, extra_columns: set, missing_columns: set, metadata_columns: list
+    data: pd.DataFrame,
+    metadata_columns: list,
 ) -> pd.DataFrame:
-    data = data.drop(list(extra_columns), axis=1)
-    for column in list(missing_columns):
-        data[column] = None
     data = data[metadata_columns]
     return data

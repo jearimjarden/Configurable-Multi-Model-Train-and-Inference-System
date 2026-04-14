@@ -1,0 +1,88 @@
+{
+    "run": {
+        "uuid": "6fe562d3-ad6d-43b8-99f7-ed56c7b7f224",
+        "artifact_name": "decision_tree.pkl",
+        "timestamp": "14/04/2026, 16:02:48"
+    },
+    "model": {
+        "type": "DECISION_TREE",
+        "params": {
+            "max_depth": 5,
+            "random_state": 42
+        }
+    },
+    "training": {
+        "target_col": "Loan_Status",
+        "features_col": [
+            "Gender",
+            "Married",
+            "Dependents",
+            "Education",
+            "Self_Employed",
+            "ApplicantIncome",
+            "CoapplicantIncome",
+            "LoanAmount",
+            "Loan_Amount_Term",
+            "Credit_History",
+            "Property_Area"
+        ],
+        "features_name_and_type": [
+            {
+                "name": "Gender",
+                "type": "str"
+            },
+            {
+                "name": "Married",
+                "type": "str"
+            },
+            {
+                "name": "Dependents",
+                "type": "str"
+            },
+            {
+                "name": "Education",
+                "type": "str"
+            },
+            {
+                "name": "Self_Employed",
+                "type": "str"
+            },
+            {
+                "name": "ApplicantIncome",
+                "type": "int64"
+            },
+            {
+                "name": "CoapplicantIncome",
+                "type": "float64"
+            },
+            {
+                "name": "LoanAmount",
+                "type": "float64"
+            },
+            {
+                "name": "Loan_Amount_Term",
+                "type": "float64"
+            },
+            {
+                "name": "Credit_History",
+                "type": "float64"
+            },
+            {
+                "name": "Property_Area",
+                "type": "str"
+            }
+        ],
+        "stratify": true,
+        "random_seed": 42
+    },
+    "data": {
+        "train_data": "data/train/train_data.csv",
+        "n_samples": 614
+    },
+    "metrics": {
+        "train_average_precision": 0.886,
+        "test_average_precision": 0.78,
+        "gap_average_precision": 0.1059,
+        "f{selection_metrics}_std": 0.024
+    }
+}

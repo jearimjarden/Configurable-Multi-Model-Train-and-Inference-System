@@ -7,7 +7,7 @@ from ..tools.schemas import Config, FittedModelPipeline
 from ..services.data_loader import load_data
 from ..services.preprocessor import create_preprocessor, split_data
 from ..services.models import cross_validate_data, fit_model
-from ..services.IO import create_artifact, create_metadata
+from ..services.IO import create_artifact, create_metadata, infer_semantic
 
 
 class TrainingPipeline:
@@ -156,10 +156,20 @@ class TrainingPipeline:
         uuid: str,
         save_name: str,
     ) -> None:
+        semantic_columns = infer_semantic(X=X)
+
+        features_name_and_type = {
+            str(col): {"type": str(type)} for col, type in X.dtypes.items()
+        }
+
+        for feature in features_name_and_type:
+            features_name_and_type[feature]["semantic"] = semantic_columns[feature]
+
         create_metadata(
             save_name=save_name,
             str_uuid=uuid,
             save_dir=self.config.artifact.save_dir,
+            features_name_and_type=features_name_and_type,
             features_col=X.columns.tolist(),
             evaluation_report=evaluation_report,
             target_columns=self.config.train.target_col,

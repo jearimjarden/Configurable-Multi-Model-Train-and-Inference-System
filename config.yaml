@@ -1,13 +1,13 @@
 data:
   train_path: "data/train/train_data.csv"
-  inference_path: "data/test/test_data.csv"
+  inference_path: "data/test/test_data_4.csv"
 
 train:
   model: 
     logistic_regression:
       type: logistic_regression
       params: 
-        max_iter1: 3000  
+        max_iter: 3000  
     decision_tree:
       type: decision_tree
       params: 
@@ -22,7 +22,7 @@ train:
   target_col: "Loan_Status"
   true_value: "Y"
   drop_features: ["Loan_ID"]
-  selection_metrics: "roc_auc"
+  selection_metrics: "average_precision"
   missing_strategy: "most_frequent"
 
 inference:
@@ -31,6 +31,8 @@ inference:
   allow_missing_features: True
   inference_report_path: "data/reports"
   threshold: 0.5
+  save_result: False
+  service: False
 
 artifact:
   save_dir: "data/artifacts"

@@ -69,20 +69,20 @@ def cross_validate_data(
 
             report[name] = {
                 f"train_{selection_metrics}": round(
-                    scores[("train_{}".format(selection_metrics))].mean(), 2
+                    scores[("train_{}".format(selection_metrics))].mean(), 3
                 ),
                 f"test_{selection_metrics}": round(
-                    scores[("test_{}".format(selection_metrics))].mean(), 2
+                    scores[("test_{}".format(selection_metrics))].mean(), 3
                 ),
                 f"gap_{selection_metrics}": round(
                     (
                         scores[("train_{}".format(selection_metrics))].mean()
                         - scores[("test_{}".format(selection_metrics))].mean()
                     ),
-                    2,
+                    4,
                 ),
                 "f{selection_metrics}_std": round(
-                    scores[("test_{}".format(selection_metrics))].std(), 2
+                    scores[("test_{}".format(selection_metrics))].std(), 3
                 ),
             }
 

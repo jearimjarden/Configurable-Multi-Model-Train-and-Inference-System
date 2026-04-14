@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 import json
+import traceback
 
 
 class JSONFormatter(logging.Formatter):
@@ -11,6 +12,11 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
             "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M"),
         }
+
+        if record.exc_info:
+            log_record["traceback"] = "".join(
+                traceback.format_exception(*record.exc_info)
+            )
 
         for key, value in record.__dict__.items():
             if key not in (
@@ -37,7 +43,7 @@ class JSONFormatter(logging.Formatter):
                 if value:
                     log_record[key] = value
 
-        return json.dumps(log_record)
+        return json.dumps(log_record, default=str)
 
 
 def setup_logging(level: str) -> None:

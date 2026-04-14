@@ -1,6 +1,10 @@
 from pathlib import Path
 import pandas as pd
-from ..tools.exceptions import DataNotExistsError, DataExtensionError, DataEmptyError
+from ..tools.exceptions import (
+    DataNotExistsError,
+    DataExtensionError,
+    DataEmptyError,
+)
 
 
 def load_data(path: str) -> pd.DataFrame:
