@@ -121,7 +121,9 @@ def fit_model(
 
 def predict_model(
     artifact: Artifact, data: pd.DataFrame, threshold: float
-) -> list[tuple[float, int]]:
-    proba = artifact["pipeline"].predict_proba(data)[:, 1]
+) -> list[tuple[int, float, int]]:
+    index = data["data_id"]
+    X = data.drop(columns=["data_id"])
+    proba = artifact["pipeline"].predict_proba(X)[:, 1]
     pred = (proba >= threshold).astype(int)
-    return list(zip(proba.tolist(), pred.tolist()))
+    return list(zip(index.tolist(), proba.tolist(), pred.tolist()))

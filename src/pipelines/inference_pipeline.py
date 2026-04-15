@@ -5,8 +5,17 @@ import uuid
 import os
 import json
 from pathlib import Path
-from ..tools.exceptions import ArtifactError, ColumnsMissingError, InputJSONError
-from ..tools.schemas import Artifact, Config, Metadata, create_pydantic_from_metadata
+import time
+from ..tools.exceptions import ArtifactError, InputJSONError
+from ..tools.schemas import (
+    Artifact,
+    Config,
+    Metadata,
+    PredictionReport,
+    Settings,
+    StagePipeline,
+    create_pydantic_from_metadata,
+)
 from ..services.IO import (
     create_prediction_report,
     load_metadata,
@@ -19,41 +28,78 @@ from ..services.models import predict_model
 
 
 class InferencePipeline:
-    def __init__(self, config: Config, logger: logging.Logger):
+    def __init__(self, config: Config, logger: logging.Logger, settings: Settings):
         self.config = config
         self.logger = logger
+        self.settings = settings
 
-    def run(self, input: str = "") -> None:
+    def run(self, input: str | pd.DataFrame = "") -> PredictionReport:
+        start_time = time.perf_counter()
         metadata, artifact = self.handle_metadata_artifact()
         InputModel = create_pydantic_from_metadata(
             metadata_features_col=metadata.training.features_name_and_type,
             model_name="FeatureColumns",
         )
 
-        if self.config.inference.service:
+        _schema = {
+            field_name: field_type.annotation
+            for field_name, field_type in InputModel.model_fields.items()
+        }
+        self.logger.debug(
+            "Created input model type",
+            extra={"stage": StagePipeline.INFERENCE, "schema": _schema},
+        )
+
+        if self.settings.predict_service:
             prediction_report = self.predict_service(
                 input=input,
                 metadata=metadata,
                 artifact=artifact,
                 input_model=InputModel,
             )
-            self.logger.debug(f"prediction report from service {prediction_report}")
 
-        else:
+        elif not self.settings.predict_service:
             data = self.load_data()
             prediction_report = self.predict_csv(
                 data=data, metadata=metadata, artifact=artifact, input_model=InputModel
             )
-            self.logger.debug(f"prediction report from data {prediction_report}")
+
+        self.logger.info(
+            "Prediction completed",
+            extra={
+                "stage": StagePipeline.INFERENCE,
+                "latency_ms": round(time.perf_counter() - start_time, 2),
+                "prediction": prediction_report.predictions,
+            },
+        )
+        return prediction_report
 
     def predict_service(
-        self, input: str, metadata: Metadata, artifact: Artifact, input_model: Type
-    ) -> dict:
-        aligned_input = self.handle_input(
-            metadata=metadata, input_model=input_model, inputs=input
+        self,
+        input: str | pd.DataFrame,
+        metadata: Metadata,
+        artifact: Artifact,
+        input_model: Type,
+    ) -> PredictionReport:
+        if isinstance(input, str):
+            aligned_input = self.handle_json_input(
+                metadata=metadata, input_model=input_model, inputs=input
+            )
+        if isinstance(input, pd.DataFrame):
+            aligned_input = self.handle_df_input(
+                inputs=input, metadata=metadata, input_model=input_model
+            )
+        self.logger.info(
+            "Prediction service started",
+            extra={
+                "stage": StagePipeline.INFERENCE,
+                "n_data": len(aligned_input),
+            },
         )
         prediction = self.predict_data(artifact=artifact, data=aligned_input)
-        prediction_report = self.create_prediction(prediction=prediction)
+        prediction_report = self.create_prediction(
+            prediction=prediction, metadata=metadata
+        )
 
         return prediction_report
 
@@ -63,12 +109,21 @@ class InferencePipeline:
         metadata: Metadata,
         artifact: Artifact,
         input_model: Type,
-    ) -> dict:
+    ) -> PredictionReport:
         aligned_data = self.handle_data(
             data=data, metadata=metadata, input_model=input_model
         )
+        self.logger.info(
+            "Data Prediction started",
+            extra={
+                "stage": StagePipeline.INFERENCE,
+                "n_data": len(aligned_data),
+            },
+        )
         prediction = self.predict_data(data=aligned_data, artifact=artifact)
-        prediction_report = self.create_prediction(prediction=prediction)
+        prediction_report = self.create_prediction(
+            prediction=prediction, metadata=metadata
+        )
         return prediction_report
 
     def _from_model_to_df(self, validated_input: list[Type]) -> pd.DataFrame:
@@ -82,8 +137,11 @@ class InferencePipeline:
         normalized_data = self._normalize_input(
             inputs=dict_data_in_list, metadata=metadata
         )
+        indexed_row = self._index_row(inputs=normalized_data)
         validated_input = validate_input(
-            normalized_data_input=normalized_data, input_schemas=input_model
+            normalized_data_input=indexed_row,
+            input_schemas=input_model,
+            allow_missing_features=self.config.inference.allow_missing_features,
         )
         dataframe_data = self._from_model_to_df(validated_input=validated_input)
         aligned_data = self.align_data(data=dataframe_data, metadata=metadata)
@@ -94,19 +152,46 @@ class InferencePipeline:
         data = data.where(data.notna(), None)
         return data.to_dict(orient="records")
 
-    def handle_input(
+    def handle_df_input(
+        self, inputs: pd.DataFrame, metadata: Metadata, input_model: Type
+    ) -> pd.DataFrame:
+        dict_input_in_list = self._df_to_dict(data=inputs)
+        normalized_input = self._normalize_input(
+            inputs=dict_input_in_list, metadata=metadata
+        )
+        indexed_row = self._index_row(inputs=normalized_input)
+        validated_input = validate_input(
+            normalized_data_input=indexed_row,
+            input_schemas=input_model,
+            allow_missing_features=self.config.inference.allow_missing_features,
+        )
+        dataframe_input = self._from_model_to_df(validated_input=validated_input)
+        aligned_input = self.align_data(data=dataframe_input, metadata=metadata)
+        return aligned_input
+
+    def handle_json_input(
         self, metadata: Metadata, input_model: Type, inputs: str
     ) -> pd.DataFrame:
         dict_input_in_list = self._JSON_to_dict(inputs=inputs)
         normalized_input = self._normalize_input(
             inputs=dict_input_in_list, metadata=metadata
         )
+        indexed_row = self._index_row(inputs=normalized_input)
         validated_input = validate_input(
-            normalized_data_input=normalized_input, input_schemas=input_model
+            normalized_data_input=indexed_row,
+            input_schemas=input_model,
+            allow_missing_features=self.config.inference.allow_missing_features,
         )
         dataframe_input = self._from_model_to_df(validated_input=validated_input)
         aligned_input = self.align_data(data=dataframe_input, metadata=metadata)
         return aligned_input
+
+    def _index_row(self, inputs: list[dict]):
+        counter = 1
+        for dict in inputs:
+            dict["data_id"] = counter
+            counter += 1
+        return inputs
 
     def _normalize_input(self, inputs: list[dict], metadata: Metadata):
         features_meta = metadata.training.features_name_and_type
@@ -121,6 +206,15 @@ class InferencePipeline:
                 if feature_meta.get("semantic") == "categorial":
                     if isinstance(value, (int, float)):
                         row[feature] = str(int(value))
+
+                    self.logger.debug(
+                        "Normalized categorial data",
+                        extra={
+                            "stage": StagePipeline,
+                            "features_name": str(feature),
+                            "feature_value": str(value),
+                        },
+                    )
 
         return inputs
 
@@ -141,6 +235,16 @@ class InferencePipeline:
         metadata = self.load_metadata()
         artifact = self.load_artifact(metadata=metadata)
         self._artifact_validation(artifact=artifact, metadata=metadata)
+
+        self.logger.debug(
+            "Artifact loaded and validated",
+            extra={
+                "stage": StagePipeline.INFERENCE,
+                "artifact_path": metadata.run.artifact_name,
+                "model_type": metadata.model.type,
+                "model_params": metadata.model.params,
+            },
+        )
         return metadata, artifact
 
     def load_metadata(self) -> Metadata:
@@ -167,45 +271,29 @@ class InferencePipeline:
         )
         return data
 
-    def _validate_data(self, data: pd.DataFrame, metadata: Metadata) -> tuple[set, set]:
-        metadata_columns = set(metadata.training.features_col)
-        data_columns = set(data.columns)
-        missing_columns = metadata_columns - data_columns
-        extra_columns = data_columns - metadata_columns
-
-        if not self.config.inference.allow_missing_features and missing_columns:
-            raise ColumnsMissingError(
-                f"Missing Columns are not allowed: {list(missing_columns)}"
-            )
-
-        return missing_columns, extra_columns
-
     def align_data(
         self,
         data: pd.DataFrame,
         metadata: Metadata,
-        missing_columns: set = set(),
-        extra_columns: set = set(),
     ) -> pd.DataFrame:
         data = align_data(
             data=data,
             metadata_columns=metadata.training.features_col,
         )
-        self.logger.info(
-            f"imputed columns: {missing_columns}, dropped features: {extra_columns}"
-        )
         return data
 
     def predict_data(
         self, artifact: Artifact, data: pd.DataFrame
-    ) -> list[tuple[float, int]]:
+    ) -> list[tuple[int, float, int]]:
         return predict_model(
             artifact=artifact,
             data=data,
             threshold=self.config.inference.threshold,
         )
 
-    def create_prediction(self, prediction: list[tuple[float, int]]) -> dict:
+    def create_prediction(
+        self, prediction: list[tuple[int, float, int]], metadata: Metadata
+    ) -> PredictionReport:
         i = 1
         save_dir = self.config.inference.inference_report_path
         save_name = Path(self.config.inference.metadata_name).stem
@@ -221,6 +309,7 @@ class InferencePipeline:
             allow_missing_features=self.config.inference.allow_missing_features,
             threshold=self.config.inference.threshold,
             save_dir=save_dir,
+            features_list=metadata.training.features_col,
             save_result=self.config.inference.save_result,
         )
         if self.config.inference.save_result:
@@ -239,5 +328,7 @@ class InferencePipeline:
     T = TypeVar("T", bound="InferencePipeline")
 
     @classmethod
-    def from_config(cls: Type[T], config: Config, logger: logging.Logger) -> T:
-        return cls(config, logger)
+    def from_config(
+        cls: Type[T], config: Config, logger: logging.Logger, settings: Settings
+    ) -> T:
+        return cls(config, logger, settings)

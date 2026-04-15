@@ -1,9 +1,12 @@
+from sqlite3 import paramstyle
+
 from sklearn.compose import ColumnTransformer
 from typing import TypeVar, Type
 import logging
 import uuid
 import pandas as pd
-from ..tools.schemas import Config, FittedModelPipeline
+import time
+from ..tools.schemas import Config, FittedModelPipeline, Settings, StagePipeline
 from ..services.data_loader import load_data
 from ..services.preprocessor import create_preprocessor, split_data
 from ..services.models import cross_validate_data, fit_model
@@ -11,39 +14,75 @@ from ..services.IO import create_artifact, create_metadata, infer_semantic
 
 
 class TrainingPipeline:
-    def __init__(self, config, logger):
+    def __init__(self, config: Config, logger: logging.Logger, settings: Settings):
         self.config = config
         self.logger = logger
+        self.settings = settings
 
     def run(self):
         data, total_rows, total_cols = self.load_data()
         self.logger.info(
-            f"Training data loaded from {self.config.data.train_path} with {total_rows} rows and {total_cols} columns"
+            "Training data successfuly loaded",
+            extra={
+                "stage": StagePipeline.TRAINING,
+                "data_path": self.config.data.train_path,
+                "total_rows": total_rows,
+                "total_cols": total_cols,
+            },
         )
 
         X, y = self.split_data(data=data)
         preprocessor = self.create_preprocessor(X=X)
-        self.logger.info("Data preprocessed")
+        label_ratio = f"1:{round(((y.value_counts()[0]+y.value_counts()[1])/y.value_counts()[1]),2)}"
+
+        self.logger.info(
+            "Data aligned and preprocessor pipeline created",
+            extra={
+                "stage": StagePipeline.TRAINING,
+                "label_ratio": label_ratio,
+                "cat_columns": X.select_dtypes(
+                    include=["object", "category"]
+                ).columns.tolist(),
+                "num_columns": X.select_dtypes(
+                    exclude=["object", "category"]
+                ).columns.tolist(),
+            },
+        )
 
         evaluation_report = self.evaluate_models(y=y, X=X, preprocessor=preprocessor)
+        best_model = self._select_best_model(evaluation_report=evaluation_report)
         self.logger.info(
-            f"Evaluated with n_fold: {self.config.train.n_cv}, selection_metrics: {self.config.train.selection_metrics}, stratify: {self.config.train.stratify}, random_seed: {self.config.train.random_seed}"
+            "Model evaluation completed",
+            extra={
+                "stage": StagePipeline.TRAINING,
+                "best_model": best_model,
+                self.config.train.selection_metrics: evaluation_report[best_model][
+                    f"test_{self.config.train.selection_metrics}"
+                ],
+            },
         )
-
+        _start_time = time.perf_counter()
         fitted_pipelines = self.train_models(preprocessor=preprocessor, X=X, y=y)
         self.logger.info(
-            f"Successfully fit model: {[model["name"] for model in fitted_pipelines]}"
+            f"Successfully trained {len(self.config.train.model)} model",
+            extra={
+                "stage": StagePipeline.TRAINING,
+                "training_time": round(time.perf_counter() - _start_time, 2),
+                "models": [
+                    {
+                        "type": model,
+                        "params": self.config.train.model[model].params,
+                    }
+                    for model in self.config.train.model
+                ],
+            },
         )
 
-        best_model = self._select_best_model(evaluation_report=evaluation_report)
         self.handle_artifact_and_metadata(
             fitted_pipelines=fitted_pipelines,
             X=X,
             evaluation_report=evaluation_report,
             best_model_name=best_model,
-        )
-        self.logger.info(
-            f"Artifact and metadata saved in '{self.config.artifact.save_dir}', saved best only: {self.config.artifact.only_best}"
         )
 
     def load_data(self) -> tuple[pd.DataFrame, int, int]:
@@ -101,6 +140,8 @@ class TrainingPipeline:
         evaluation_report: dict[str, dict],
         best_model_name: str,
     ) -> None:
+        saved_artifacts = []
+        saved_metadatas = []
         if not self.config.artifact.only_best:
             for pipeline in fitted_pipelines:
                 str_uuid = self._create_uuid()
@@ -109,16 +150,24 @@ class TrainingPipeline:
                     if pipeline["name"] == best_model_name
                     else pipeline["name"]
                 )
+                save_artifact_name = save_name + ".pkl"
+                save_metadata_name = save_name + ".json"
+
                 self.save_artifact(
-                    fitted_pipeline=pipeline, uuid=str_uuid, save_name=save_name
+                    fitted_pipeline=pipeline,
+                    uuid=str_uuid,
+                    save_name=save_artifact_name,
                 )
                 self.save_metadata(
                     X=X,
                     evaluation_report=evaluation_report[pipeline["name"]],
                     model_name=pipeline["name"],
                     uuid=str_uuid,
-                    save_name=save_name,
+                    save_name=save_metadata_name,
                 )
+                saved_metadatas.append(save_metadata_name)
+                saved_artifacts.append(save_artifact_name)
+
         else:
             str_uuid = self._create_uuid()
             pipeline = next(
@@ -127,16 +176,31 @@ class TrainingPipeline:
                 if pipeline["name"] == best_model_name
             )
             save_name = f"best_{pipeline['name']}"
+            save_artifact_name = save_name + ".pkl"
+            save_metadata_name = save_name + ".json"
+
             self.save_artifact(
-                fitted_pipeline=pipeline, uuid=str_uuid, save_name=save_name
+                fitted_pipeline=pipeline, uuid=str_uuid, save_name=save_artifact_name
             )
             self.save_metadata(
                 X=X,
                 evaluation_report=evaluation_report[pipeline["name"]],
                 model_name=pipeline["name"],
                 uuid=str_uuid,
-                save_name=save_name,
+                save_name=save_metadata_name,
             )
+            saved_metadatas.append(save_metadata_name)
+            saved_artifacts.append(save_artifact_name)
+
+        self.logger.info(
+            "Saved Metadata and Artifact",
+            extra={
+                "stage": StagePipeline.TRAINING,
+                "save_only_best": self.config.artifact.only_best,
+                "saved_metadata": saved_metadatas,
+                "saved_artifacts": saved_artifacts,
+            },
+        )
 
     def save_artifact(
         self, fitted_pipeline: FittedModelPipeline, uuid: str, save_name: str
@@ -195,5 +259,7 @@ class TrainingPipeline:
     T = TypeVar("T", bound="TrainingPipeline")
 
     @classmethod
-    def from_config(cls: Type[T], config: Config, logger: logging.Logger) -> T:
-        return cls(config, logger)
+    def from_config(
+        cls: Type[T], config: Config, logger: logging.Logger, settings: Settings
+    ) -> T:
+        return cls(config, logger, settings)

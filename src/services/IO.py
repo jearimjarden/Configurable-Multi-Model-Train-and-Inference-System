@@ -12,9 +12,12 @@ from ..tools.schemas import (
     ConfigTrainModel,
     FittedModelPipeline,
     Metadata,
+    PredictionReport,
+    StagePipeline,
 )
 from ..tools.exceptions import (
     ArtifactError,
+    ColumnsMissingError,
     FeatureTypeError,
     InputJSONError,
     MetadataError,
@@ -50,7 +53,7 @@ def create_artifact(
     os.makedirs(save_dir, exist_ok=True)
     artifact = {"uuid": uuid, "pipeline": fitted_pipeline["model"]}
 
-    with open(f"{save_dir}/{save_name}.pkl", "wb") as f:
+    with open(Path(save_dir) / save_name, "wb") as f:
         pickle.dump(artifact, f)
 
 
@@ -94,7 +97,7 @@ def create_metadata(
         },
         "metrics": evaluation_report,
     }
-    with open(f"{save_dir}/{save_name}.json", "w") as f:
+    with open(Path(save_dir) / save_name, "w") as f:
         json.dump(metadata_report, f, indent=4)
 
 
@@ -143,48 +146,83 @@ def load_artifact(load_dir: str, artifact_name: str) -> Artifact:
 def create_prediction_report(
     save_name: str,
     str_uuid: str,
-    prediction: list[tuple[float, int]],
+    prediction: list[tuple[int, float, int]],
+    features_list: list,
     metadata_name: str,
     allow_missing_features: bool,
     threshold: float,
     save_dir: str,
     save_result: bool,
-) -> dict:
+) -> PredictionReport:
     os.makedirs(save_dir, exist_ok=True)
 
     report = {
         "metadata": {
             "uuid": str_uuid,
-            "metadata name": metadata_name,
-            "allow missing features": allow_missing_features,
+            "metadata_name": metadata_name,
+            "allow_missing_features": allow_missing_features,
             "threshold": threshold,
+            "features_list": features_list,
             "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
         },
         "predictions": [
-            {"prediction": pred, "probability": proba} for pred, proba in prediction
+            {"data_id": id, "prediction": pred, "probability": round(proba, 3)}
+            for id, proba, pred in prediction
         ],
     }
 
     if save_result:
         with open(Path(save_dir) / save_name, "w") as f:
             json.dump(report, f, indent=4)
+    return PredictionReport(**report)
 
-    return report
 
-
-def validate_input(normalized_data_input: list, input_schemas: Type) -> list[Type]:
+def validate_input(
+    normalized_data_input: list, input_schemas: Type, allow_missing_features: bool
+) -> list[Type]:
     validated_input = []
     try:
         for input in normalized_data_input:
             missing_columns = set(input_schemas.model_fields.keys() - set(input.keys()))
             extra_columns = set(set(input.keys()) - input_schemas.model_fields.keys())
 
-            logger.info(
-                f"missing columns: '{list(missing_columns)}', extra columns: '{list(extra_columns)}"
+            logger.debug(
+                "Data validated",
+                extra={
+                    "stage": StagePipeline.DATA_ALIGNMENT,
+                    "missing_columns": list(missing_columns),
+                    "extra_columns": list(extra_columns),
+                },
             )
+
+            if missing_columns or extra_columns:
+                logger.info(
+                    "Encountered missing or extra columns",
+                    extra={
+                        "stage": StagePipeline.DATA_ALIGNMENT,
+                        "data_id": input["data_id"],
+                        "dropped_columns": extra_columns,
+                        "imputed_columns": missing_columns,
+                    },
+                )
+                if missing_columns and not allow_missing_features:
+                    logger.info(
+                        "Skipping data with missing features",
+                        extra={
+                            "stage": StagePipeline.DATA_ALIGNMENT,
+                            "data_id": input["data_id"],
+                            "missing_features": missing_columns,
+                        },
+                    )
+                    continue
+
             validated_input.append(input_schemas(**input))
 
-        return validated_input
+        if not validated_input:
+            raise ColumnsMissingError("No valid row to predict")
+
+        else:
+            return validated_input
 
     except json.JSONDecodeError as e:
         raise InputJSONError(f"Invalid JSON input: {e}") from e

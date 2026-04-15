@@ -59,5 +59,11 @@ def align_data(
     data: pd.DataFrame,
     metadata_columns: list,
 ) -> pd.DataFrame:
-    data = data[metadata_columns]
-    return data
+    index = data["data_id"]
+
+    data_unindexed = data.drop(columns=["data_id"])
+    data_unindexed = data_unindexed[metadata_columns]
+
+    data_unindexed.insert(0, "data_id", index.to_numpy())
+
+    return data_unindexed

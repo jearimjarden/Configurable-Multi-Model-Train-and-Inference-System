@@ -1,11 +1,14 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, create_model
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from enum import Enum
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeClassifier
 from typing import Optional, TypedDict
-from ..tools.exceptions import ConfigError, FeatureTypeError
+from pathlib import Path
+from typing import Type
+from .exceptions import ConfigError, FeatureTypeError, SettingsNotExistsError
 
 
 class Artifact(TypedDict):
@@ -18,6 +21,15 @@ class FittedModelPipeline(TypedDict):
     model: Pipeline
 
 
+class StagePipeline(str, Enum):
+    TRAINING = "training"
+    DATA_PROCESSING = "data_processing"
+    DATA_PREPROCESSING = "data_preprocessing"
+    DATA_ALIGNMENT = "data_aligment"
+    EVALUATION = "evaluation"
+    INFERENCE = "inference"
+
+
 class ModelType(Enum):
     LOGISTIC_REGRESSION = LogisticRegression
     DECISION_TREE = DecisionTreeClassifier
@@ -27,6 +39,23 @@ class ModelType(Enum):
 class InferenceStrategy(str, Enum):
     MOST_FREQUENT = "most_frequent"
     CONSTANT = "constant"
+
+
+ENV_PATH = ".env"
+
+
+class Settings(BaseSettings):
+    environment: str = Field(...)
+    predict_service: bool = Field(...)
+    save_log: bool = Field(...)
+    save_log_level: str = Field(...)
+    model_config = SettingsConfigDict(env_file=ENV_PATH, extra="forbid")
+
+    @classmethod
+    def load(cls: Type["Settings"]) -> "Settings":
+        if not Path(ENV_PATH).exists():
+            raise SettingsNotExistsError(f"Env file not found at {ENV_PATH}")
+        return cls()  # type: ignore
 
 
 class ConfigData(BaseModel):
@@ -67,8 +96,7 @@ class ConfigInference(BaseModel):
     allow_missing_features: bool = Field(...)
     inference_report_path: str = Field(...)
     threshold: float = Field(0.5, ge=0, le=1)
-    save_result: bool = Field(False)
-    service: bool = Field(True)
+    save_result: bool = Field(...)
     model_config = ConfigDict(extra="forbid")
 
 
@@ -123,6 +151,29 @@ class Metadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class PredictionReportMetadata(BaseModel):
+    uuid: str = Field(...)
+    metadata_name: str = Field(...)
+    allow_missing_features: bool = Field(...)
+    threshold: float = Field(...)
+    features_list: list = Field(...)
+    timestamp: str = Field(...)
+    model_config = ConfigDict(extra="forbid")
+
+
+class PredictionReportPredictions(BaseModel):
+    data_id: int = Field(...)
+    prediction: int = Field(...)
+    probability: float = Field(...)
+    model_config = ConfigDict(extra="forbid")
+
+
+class PredictionReport(BaseModel):
+    metadata: PredictionReportMetadata = Field(...)
+    predictions: list[PredictionReportPredictions] = Field(...)
+    model_config = ConfigDict(extra="forbid")
+
+
 TYPE_MAP = {"int64": int, "float64": float, "str": str}
 
 
@@ -138,7 +189,7 @@ def create_pydantic_from_metadata(
             raise FeatureTypeError(
                 f"Unrecognized feature data type: name={feature} type={metadata_features_col[feature]['type']}"
             )
-
         fields[feature] = (Optional[base_type], None)
 
+    fields["data_id"] = (int, None)
     return create_model(model_name, **fields, __config__=ConfigDict(extra="ignore"))

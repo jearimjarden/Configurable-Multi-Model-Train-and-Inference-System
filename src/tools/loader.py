@@ -1,8 +1,12 @@
 from pydantic import ValidationError
 from pathlib import Path
 import yaml
-from .exceptions import ConfigInvalidError, ConfigNotExistsError
-from ..tools.schemas import Config
+from .exceptions import (
+    ConfigInvalidError,
+    ConfigNotExistsError,
+    SettingsInvalidError,
+)
+from ..tools.schemas import Config, Settings
 
 
 def load_config() -> Config:
@@ -35,3 +39,23 @@ def load_config() -> Config:
                 messages.append(f"Invalid value for '{field}': {err['msg']}")
 
         raise ConfigInvalidError(" | ".join(messages)) from e
+
+
+def load_settings():
+    try:
+        env = Settings.load()
+        return env
+
+    except ValidationError as e:
+        messages = []
+
+        for err in e.errors():
+            field = ".".join(str(x) for x in err["loc"])
+            if err["type"] == "missing":
+                messages.append(f"Missing env parameter: '{field}'")
+            elif err["type"] == "extra_forbidden":
+                messages.append(f"Forbidden extra config parameter: '{field}'")
+            else:
+                messages.append((f"Invalid value for '{field}': {err['msg']}"))
+
+        raise SettingsInvalidError(" | ".join(messages)) from e

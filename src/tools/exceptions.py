@@ -2,6 +2,14 @@ class ConfigError(Exception):
     pass
 
 
+class SettingsInvalidError(ConfigError):
+    pass
+
+
+class SettingsNotExistsError(ConfigError):
+    pass
+
+
 class ConfigInvalidError(ConfigError):
     pass
 

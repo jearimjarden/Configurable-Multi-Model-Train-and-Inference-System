@@ -28,11 +28,10 @@ train:
 inference:
   load_dir: "data/artifacts"
   metadata_name: "best_random_forest.json"
-  allow_missing_features: True
+  allow_missing_features: False
   inference_report_path: "data/reports"
   threshold: 0.5
   save_result: False
-  service: False
 
 artifact:
   save_dir: "data/artifacts"
