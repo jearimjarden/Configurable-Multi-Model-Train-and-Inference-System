@@ -1,11 +1,10 @@
-from sqlite3 import paramstyle
-
 from sklearn.compose import ColumnTransformer
 from typing import TypeVar, Type
 import logging
 import uuid
 import pandas as pd
 import time
+from ..tools.exceptions import DataError, LoggedError, TrainingError
 from ..tools.schemas import Config, FittedModelPipeline, Settings, StagePipeline
 from ..services.data_loader import load_data
 from ..services.preprocessor import create_preprocessor, split_data
@@ -20,70 +19,78 @@ class TrainingPipeline:
         self.settings = settings
 
     def run(self):
-        data, total_rows, total_cols = self.load_data()
-        self.logger.info(
-            "Training data successfuly loaded",
-            extra={
-                "stage": StagePipeline.TRAINING,
-                "data_path": self.config.data.train_path,
-                "total_rows": total_rows,
-                "total_cols": total_cols,
-            },
-        )
+        try:
+            data, total_rows, total_cols = self.load_data()
+            self.logger.info(
+                "Training data successfuly loaded",
+                extra={
+                    "stage": StagePipeline.DATA_LOADING,
+                    "data_path": self.config.data.train_path,
+                    "total_rows": total_rows,
+                    "total_cols": total_cols,
+                },
+            )
 
-        X, y = self.split_data(data=data)
-        preprocessor = self.create_preprocessor(X=X)
-        label_ratio = f"1:{round(((y.value_counts()[0]+y.value_counts()[1])/y.value_counts()[1]),2)}"
+            X, y = self.split_data(data=data)
+            preprocessor = self.create_preprocessor(X=X)
+            label_ratio = f"1:{round(((y.value_counts()[0]+y.value_counts()[1])/y.value_counts()[1]),2)}"
 
-        self.logger.info(
-            "Data aligned and preprocessor pipeline created",
-            extra={
-                "stage": StagePipeline.TRAINING,
-                "label_ratio": label_ratio,
-                "cat_columns": X.select_dtypes(
-                    include=["object", "category"]
-                ).columns.tolist(),
-                "num_columns": X.select_dtypes(
-                    exclude=["object", "category"]
-                ).columns.tolist(),
-            },
-        )
+            self.logger.info(
+                "Data aligned and preprocessor pipeline created",
+                extra={
+                    "stage": StagePipeline.DATA_ALIGNMENT,
+                    "label_ratio": label_ratio,
+                    "cat_columns": X.select_dtypes(
+                        include=["object", "category"]
+                    ).columns.tolist(),
+                    "num_columns": X.select_dtypes(
+                        exclude=["object", "category"]
+                    ).columns.tolist(),
+                },
+            )
 
-        evaluation_report = self.evaluate_models(y=y, X=X, preprocessor=preprocessor)
-        best_model = self._select_best_model(evaluation_report=evaluation_report)
-        self.logger.info(
-            "Model evaluation completed",
-            extra={
-                "stage": StagePipeline.TRAINING,
-                "best_model": best_model,
-                self.config.train.selection_metrics: evaluation_report[best_model][
-                    f"test_{self.config.train.selection_metrics}"
-                ],
-            },
-        )
-        _start_time = time.perf_counter()
-        fitted_pipelines = self.train_models(preprocessor=preprocessor, X=X, y=y)
-        self.logger.info(
-            f"Successfully trained {len(self.config.train.model)} model",
-            extra={
-                "stage": StagePipeline.TRAINING,
-                "training_time": round(time.perf_counter() - _start_time, 2),
-                "models": [
-                    {
-                        "type": model,
-                        "params": self.config.train.model[model].params,
-                    }
-                    for model in self.config.train.model
-                ],
-            },
-        )
+            evaluation_report = self.evaluate_models(
+                y=y, X=X, preprocessor=preprocessor
+            )
+            best_model = self._select_best_model(evaluation_report=evaluation_report)
+            self.logger.info(
+                "Model evaluation completed",
+                extra={
+                    "stage": StagePipeline.EVALUATION,
+                    "best_model": best_model,
+                    self.config.train.selection_metrics: evaluation_report[best_model][
+                        f"test_{self.config.train.selection_metrics}"
+                    ],
+                },
+            )
+            _start_time = time.perf_counter()
+            fitted_pipelines = self.train_models(preprocessor=preprocessor, X=X, y=y)
+            self.logger.info(
+                f"Successfully trained {len(self.config.train.model)} model",
+                extra={
+                    "stage": StagePipeline.MODEL_FITTING,
+                    "training_time": f"{round(time.perf_counter() - _start_time, 2)}s",
+                    "models": [
+                        {
+                            "type": model,
+                            "params": self.config.train.model[model].params,
+                        }
+                        for model in self.config.train.model
+                    ],
+                },
+            )
 
-        self.handle_artifact_and_metadata(
-            fitted_pipelines=fitted_pipelines,
-            X=X,
-            evaluation_report=evaluation_report,
-            best_model_name=best_model,
-        )
+            self.handle_artifact_and_metadata(
+                y=y,
+                fitted_pipelines=fitted_pipelines,
+                X=X,
+                evaluation_report=evaluation_report,
+                best_model_name=best_model,
+            )
+
+        except (DataError, TrainingError) as e:
+            self.logger.error(str(e), extra={"stage": e.stage})
+            raise LoggedError from e
 
     def load_data(self) -> tuple[pd.DataFrame, int, int]:
         data = load_data(self.config.data.train_path)
@@ -136,6 +143,7 @@ class TrainingPipeline:
     def handle_artifact_and_metadata(
         self,
         fitted_pipelines: list[FittedModelPipeline],
+        y: pd.Series,
         X: pd.DataFrame,
         evaluation_report: dict[str, dict],
         best_model_name: str,
@@ -159,11 +167,13 @@ class TrainingPipeline:
                     save_name=save_artifact_name,
                 )
                 self.save_metadata(
+                    y=y,
                     X=X,
                     evaluation_report=evaluation_report[pipeline["name"]],
                     model_name=pipeline["name"],
                     uuid=str_uuid,
-                    save_name=save_metadata_name,
+                    save_metadata_name=save_metadata_name,
+                    save_artifact_name=save_artifact_name,
                 )
                 saved_metadatas.append(save_metadata_name)
                 saved_artifacts.append(save_artifact_name)
@@ -183,11 +193,13 @@ class TrainingPipeline:
                 fitted_pipeline=pipeline, uuid=str_uuid, save_name=save_artifact_name
             )
             self.save_metadata(
+                y=y,
                 X=X,
                 evaluation_report=evaluation_report[pipeline["name"]],
                 model_name=pipeline["name"],
                 uuid=str_uuid,
-                save_name=save_metadata_name,
+                save_metadata_name=save_metadata_name,
+                save_artifact_name=save_artifact_name,
             )
             saved_metadatas.append(save_metadata_name)
             saved_artifacts.append(save_artifact_name)
@@ -214,11 +226,13 @@ class TrainingPipeline:
 
     def save_metadata(
         self,
+        y: pd.Series,
         X: pd.DataFrame,
         evaluation_report: dict[str, dict],
         model_name: str,
         uuid: str,
-        save_name: str,
+        save_metadata_name: str,
+        save_artifact_name: str,
     ) -> None:
         semantic_columns = infer_semantic(X=X)
 
@@ -230,7 +244,9 @@ class TrainingPipeline:
             features_name_and_type[feature]["semantic"] = semantic_columns[feature]
 
         create_metadata(
-            save_name=save_name,
+            class_ratio=f"1:{1/(y.value_counts()[1]/(y.value_counts()[1]+y.value_counts()[0]))}",
+            save_metadata_name=save_metadata_name,
+            save_artifact_name=save_artifact_name,
             str_uuid=uuid,
             save_dir=self.config.artifact.save_dir,
             features_name_and_type=features_name_and_type,

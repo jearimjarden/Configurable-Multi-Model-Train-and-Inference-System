@@ -6,7 +6,7 @@ from .exceptions import (
     ConfigNotExistsError,
     SettingsInvalidError,
 )
-from ..tools.schemas import Config, Settings
+from ..tools.schemas import Config, Settings, StagePipeline
 
 
 def load_config() -> Config:
@@ -20,7 +20,8 @@ def load_config() -> Config:
 
     except FileNotFoundError as e:
         raise ConfigNotExistsError(
-            f"Cannot find 'config.yaml' at: {config_path.resolve()}"
+            f"Cannot find 'config.yaml' at: {config_path.resolve()}",
+            stage=StagePipeline.CONFIGURATION_LOADING,
         ) from e
 
     except ValidationError as e:
@@ -38,7 +39,9 @@ def load_config() -> Config:
             else:
                 messages.append(f"Invalid value for '{field}': {err['msg']}")
 
-        raise ConfigInvalidError(" | ".join(messages)) from e
+        raise ConfigInvalidError(
+            " | ".join(messages), stage=StagePipeline.CONFIGURATION_LOADING
+        ) from e
 
 
 def load_settings():
@@ -58,4 +61,6 @@ def load_settings():
             else:
                 messages.append((f"Invalid value for '{field}': {err['msg']}"))
 
-        raise SettingsInvalidError(" | ".join(messages)) from e
+        raise SettingsInvalidError(
+            " | ".join(messages), stage=StagePipeline.CONFIGURATION_LOADING
+        ) from e

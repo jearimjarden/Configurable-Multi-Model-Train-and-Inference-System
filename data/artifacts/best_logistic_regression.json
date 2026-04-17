@@ -1,14 +1,13 @@
 {
     "run": {
-        "uuid": "ca28248c-ce64-4a68-8f53-ef8511900723",
-        "artifact_name": "best_random_forest.pkl",
-        "timestamp": "16/04/2026, 17:48:24"
+        "uuid": "183d8751-d9df-47b4-b5df-5c8d9024cf5e",
+        "artifact_name": "best_logistic_regression.pkl",
+        "timestamp": "17/04/2026, 21:04:49"
     },
     "model": {
-        "type": "RANDOM_FOREST",
+        "type": "LOGISTIC_REGRESSION",
         "params": {
-            "max_depth": 5,
-            "random_state": 42
+            "max_iter": 3000
         }
     },
     "training": {
@@ -81,9 +80,9 @@
         "class_ratio": "1:1.4549763033175356"
     },
     "metrics": {
-        "train_accuracy": 0.822,
-        "test_accuracy": 0.806,
-        "gap_accuracy": 0.0163,
-        "f{selection_metrics}_std": 0.018
+        "train_accuracy": 0.813,
+        "test_accuracy": 0.803,
+        "gap_accuracy": 0.0101,
+        "f{selection_metrics}_std": 0.026
     }
 }

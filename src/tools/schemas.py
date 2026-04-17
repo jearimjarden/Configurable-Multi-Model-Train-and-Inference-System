@@ -8,7 +8,7 @@ from sklearn.tree import DecisionTreeClassifier
 from typing import Optional, TypedDict
 from pathlib import Path
 from typing import Type
-from .exceptions import ConfigError, FeatureTypeError, SettingsNotExistsError
+from .exceptions import ConfigurationError, SettingsNotExistsError, FeatureTypeError
 
 
 class Artifact(TypedDict):
@@ -27,7 +27,13 @@ class StagePipeline(str, Enum):
     DATA_PREPROCESSING = "data_preprocessing"
     DATA_ALIGNMENT = "data_aligment"
     EVALUATION = "evaluation"
+    MODEL_SELECTION = "model_selection"
+    MODEL_FITTING = "model_fitting"
     INFERENCE = "inference"
+    DATA_LOADING = "data_loading"
+    LOADING = "loading"
+    CONFIGURATION_LOADING = "configuration_loading"
+    VALIDATION = "validation"
 
 
 class ModelType(Enum):
@@ -44,17 +50,28 @@ class InferenceStrategy(str, Enum):
 ENV_PATH = ".env"
 
 
+class LOG_LEVEL(str, Enum):
+    LOGGER_DEBUG = "debug"
+    LOGGER_INFO = "info"
+    LOGGER_WARNING = "warning"
+    LOGGER_ERROR = "error"
+    LOGGER_CRITICAL = "critical"
+
+
 class Settings(BaseSettings):
     environment: str = Field(...)
     predict_service: bool = Field(...)
     save_log: bool = Field(...)
-    save_log_level: str = Field(...)
+    save_log_level: LOG_LEVEL = Field(...)
     model_config = SettingsConfigDict(env_file=ENV_PATH, extra="forbid")
 
     @classmethod
     def load(cls: Type["Settings"]) -> "Settings":
         if not Path(ENV_PATH).exists():
-            raise SettingsNotExistsError(f"Env file not found at {ENV_PATH}")
+            raise SettingsNotExistsError(
+                f"Env file not found at {ENV_PATH}",
+                stage=StagePipeline.CONFIGURATION_LOADING,
+            )
         return cls()  # type: ignore
 
 
@@ -74,7 +91,9 @@ class ConfigTrainModel(BaseModel):
         try:
             return ModelType[value.upper()]
         except KeyError:
-            raise ConfigError("Invalid Model Type")
+            raise ConfigurationError(
+                "Invalid Model Type", stage=StagePipeline.CONFIGURATION_LOADING
+            )
 
 
 class ConfigTrain(BaseModel):
@@ -139,6 +158,7 @@ class MetadataTraining(BaseModel):
 class MetadataData(BaseModel):
     train_data: str = Field(...)
     n_samples: int = Field(...)
+    class_ratio: str = Field(...)
     model_config = ConfigDict(extra="forbid")
 
 
@@ -187,7 +207,8 @@ def create_pydantic_from_metadata(
 
         if base_type is None:
             raise FeatureTypeError(
-                f"Unrecognized feature data type: name={feature} type={metadata_features_col[feature]['type']}"
+                f"Unrecognized feature data type: name={feature} type={metadata_features_col[feature]['type']}",
+                stage=StagePipeline.VALIDATION,
             )
         fields[feature] = (Optional[base_type], None)
 

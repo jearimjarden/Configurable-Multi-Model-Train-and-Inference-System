@@ -17,10 +17,8 @@ from ..tools.schemas import (
 )
 from ..tools.exceptions import (
     ArtifactError,
-    ColumnsMissingError,
-    FeatureTypeError,
-    InputJSONError,
     MetadataError,
+    NoValidDataError,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,7 +56,8 @@ def create_artifact(
 
 
 def create_metadata(
-    save_name: str,
+    save_metadata_name: str,
+    save_artifact_name: str,
     save_dir: str,
     evaluation_report: dict,
     train_data: str,
@@ -69,6 +68,7 @@ def create_metadata(
     features_name_and_type: dict,
     random_seed: int,
     model_name: str,
+    class_ratio: str,
     str_uuid: str,
     models: dict[str, ConfigTrainModel],
 ) -> None:
@@ -77,7 +77,7 @@ def create_metadata(
     metadata_report = {
         "run": {
             "uuid": str_uuid,
-            "artifact_name": f"{save_name}.pkl",
+            "artifact_name": save_artifact_name,
             "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
         },
         "model": {
@@ -94,22 +94,25 @@ def create_metadata(
         "data": {
             "train_data": train_data,
             "n_samples": n_samples,
+            "class_ratio": class_ratio,
         },
         "metrics": evaluation_report,
     }
-    with open(Path(save_dir) / save_name, "w") as f:
+    with open(Path(save_dir) / save_metadata_name, "w") as f:
         json.dump(metadata_report, f, indent=4)
 
 
 def load_metadata(load_dir: str, metadata_name: str) -> Metadata:
     metadata_path = Path(load_dir) / metadata_name
+    if not metadata_path.exists():
+        raise MetadataError(
+            f"Cannot find metadata at '{metadata_path.resolve()}'",
+            stage=StagePipeline.LOADING,
+        )
     with open(metadata_path, "r") as f:
         data = json.load(f)
         try:
             return Metadata(**data)
-
-        except FileNotFoundError:
-            raise MetadataError(f"Cannot find metadata at '{metadata_path.resolve()}'")
 
         except ValidationError as e:
             messages = []
@@ -124,7 +127,9 @@ def load_metadata(load_dir: str, metadata_name: str) -> Metadata:
                         f"Invalid parameter's value type for '{field}': {err["msg"]}"
                     )
 
-            raise MetadataError(" | ".join(message for message in messages)) from e
+            raise MetadataError(
+                " | ".join(message for message in messages), stage=StagePipeline.LOADING
+            ) from e
 
 
 def load_artifact(load_dir: str, artifact_name: str) -> Artifact:
@@ -135,11 +140,15 @@ def load_artifact(load_dir: str, artifact_name: str) -> Artifact:
             return pickle.load(f)
 
     except FileNotFoundError:
-        raise ArtifactError(f"Cannot find artifact at {artifact_path.resolve()}")
+        raise ArtifactError(
+            f"Cannot find artifact at {artifact_path.resolve()}",
+            stage=StagePipeline.LOADING,
+        )
 
     except Exception as e:
         raise ArtifactError(
-            f"Unexpected error occured while loading artifact at {artifact_path.resolve()}"
+            f"Unexpected error occured while loading artifact at {artifact_path.resolve()}",
+            stage=StagePipeline.LOADING,
         ) from e
 
 
@@ -181,64 +190,76 @@ def validate_input(
     normalized_data_input: list, input_schemas: Type, allow_missing_features: bool
 ) -> list[Type]:
     validated_input = []
-    try:
-        for input in normalized_data_input:
-            missing_columns = set(input_schemas.model_fields.keys() - set(input.keys()))
-            extra_columns = set(set(input.keys()) - input_schemas.model_fields.keys())
 
-            logger.debug(
-                "Data validated",
-                extra={
-                    "stage": StagePipeline.DATA_ALIGNMENT,
-                    "missing_columns": list(missing_columns),
-                    "extra_columns": list(extra_columns),
-                },
-            )
+    for input in normalized_data_input:
+        missing_columns = set(input_schemas.model_fields.keys() - set(input.keys()))
+        extra_columns = set(set(input.keys()) - input_schemas.model_fields.keys())
 
-            if missing_columns or extra_columns:
-                logger.info(
-                    "Encountered missing or extra columns",
+        logger.debug(
+            "Data validated",
+            extra={
+                "stage": StagePipeline.DATA_ALIGNMENT,
+                "missing_columns": list(missing_columns),
+                "extra_columns": list(extra_columns),
+            },
+        )
+
+        if missing_columns:
+            if not allow_missing_features:
+                logger.warning(
+                    "Skipping data with missing features",
                     extra={
                         "stage": StagePipeline.DATA_ALIGNMENT,
                         "data_id": input["data_id"],
-                        "dropped_columns": extra_columns,
-                        "imputed_columns": missing_columns,
+                        "missing_features": missing_columns,
                     },
                 )
-                if missing_columns and not allow_missing_features:
-                    logger.info(
-                        "Skipping data with missing features",
-                        extra={
-                            "stage": StagePipeline.DATA_ALIGNMENT,
-                            "data_id": input["data_id"],
-                            "missing_features": missing_columns,
-                        },
-                    )
-                    continue
+                continue
+            logger.warning(
+                "Encountered missing columns and will be imputed",
+                extra={
+                    "stage": StagePipeline.DATA_ALIGNMENT,
+                    "data_id": input["data_id"],
+                    "missing_columns": missing_columns,
+                },
+            )
 
+        if extra_columns:
+            logger.info(
+                "Encountered extra columns and will be dropped",
+                extra={
+                    "stage": StagePipeline.DATA_ALIGNMENT,
+                    "data_id": input["data_id"],
+                    "extra_columns": extra_columns,
+                },
+            )
+        try:
             validated_input.append(input_schemas(**input))
 
-        if not validated_input:
-            raise ColumnsMissingError("No valid row to predict")
+        except ValidationError as e:
+            error_messages = []
 
-        else:
-            return validated_input
+            for err in e.errors():
+                fields = ".".join(str(x) for x in err["loc"])
+                error_messages.append((fields, str(err["msg"])))
 
-    except json.JSONDecodeError as e:
-        raise InputJSONError(f"Invalid JSON input: {e}") from e
+            logger.warning(
+                "Skipping data with invalid value",
+                extra={
+                    "stage": StagePipeline.VALIDATION,
+                    "data_id": input["data_id"],
+                    "error": [
+                        {"feature": feature, "message": message}
+                        for feature, message in error_messages
+                    ],
+                },
+            )
+            continue
 
-    except ValidationError as e:
-        messages = []
-        for err in e.errors():
-            fields = ".".join(str(x) for x in err["loc"])
+    if not validated_input:
+        raise NoValidDataError(
+            "No valid data's row to continue", stage=StagePipeline.VALIDATION
+        )
 
-            if err["type"] == "missing":
-                messages.append(
-                    FeatureTypeError(f"Missing features in data input: '{fields}'")
-                )
-            else:
-                messages.append(
-                    FeatureTypeError(f"Invalid value for '{fields}': {err['msg']}")
-                )
-
-        raise FeatureTypeError(" | ".join(str(message) for message in messages)) from e
+    else:
+        return validated_input

@@ -6,7 +6,14 @@ import os
 import json
 from pathlib import Path
 import time
-from ..tools.exceptions import ArtifactError, InputJSONError
+from ..tools.exceptions import (
+    ArtifactError,
+    DataError,
+    InferenceError,
+    InputJSONError,
+    LoggedError,
+    MetadataError,
+)
 from ..tools.schemas import (
     Artifact,
     Config,
@@ -34,45 +41,54 @@ class InferencePipeline:
         self.settings = settings
 
     def run(self, input: str | pd.DataFrame = "") -> PredictionReport:
-        start_time = time.perf_counter()
-        metadata, artifact = self.handle_metadata_artifact()
-        InputModel = create_pydantic_from_metadata(
-            metadata_features_col=metadata.training.features_name_and_type,
-            model_name="FeatureColumns",
-        )
-
-        _schema = {
-            field_name: field_type.annotation
-            for field_name, field_type in InputModel.model_fields.items()
-        }
-        self.logger.debug(
-            "Created input model type",
-            extra={"stage": StagePipeline.INFERENCE, "schema": _schema},
-        )
-
-        if self.settings.predict_service:
-            prediction_report = self.predict_service(
-                input=input,
-                metadata=metadata,
-                artifact=artifact,
-                input_model=InputModel,
+        try:
+            start_time = time.perf_counter()
+            metadata, artifact = self.handle_metadata_artifact()
+            InputModel = create_pydantic_from_metadata(
+                metadata_features_col=metadata.training.features_name_and_type,
+                model_name="FeatureColumns",
             )
 
-        elif not self.settings.predict_service:
-            data = self.load_data()
-            prediction_report = self.predict_csv(
-                data=data, metadata=metadata, artifact=artifact, input_model=InputModel
+            _schema = {
+                field_name: field_type.annotation
+                for field_name, field_type in InputModel.model_fields.items()
+            }
+            self.logger.debug(
+                "Created input model type",
+                extra={"stage": StagePipeline.VALIDATION, "schema": _schema},
             )
 
-        self.logger.info(
-            "Prediction completed",
-            extra={
-                "stage": StagePipeline.INFERENCE,
-                "latency_ms": round(time.perf_counter() - start_time, 2),
-                "prediction": prediction_report.predictions,
-            },
-        )
-        return prediction_report
+            if self.settings.predict_service:
+                prediction_report = self.predict_service(
+                    input=input,
+                    metadata=metadata,
+                    artifact=artifact,
+                    input_model=InputModel,
+                )
+
+            elif not self.settings.predict_service:
+                data = self.load_data()
+                prediction_report = self.predict_csv(
+                    data=data,
+                    metadata=metadata,
+                    artifact=artifact,
+                    input_model=InputModel,
+                )
+
+            self.logger.info(
+                "Prediction completed",
+                extra={
+                    "stage": StagePipeline.INFERENCE,
+                    "latency_ms": round(time.perf_counter() - start_time, 2),
+                    "prediction": prediction_report.predictions,
+                },
+            )
+
+            return prediction_report
+
+        except (DataError, InferenceError, MetadataError, ArtifactError) as e:
+            self.logger.error(str(e), extra={"stage": e.stage})
+            raise LoggedError from e
 
     def predict_service(
         self,
@@ -229,7 +245,9 @@ class InferencePipeline:
 
             return dict_input_in_list
         except json.JSONDecodeError as e:
-            raise InputJSONError(f"Invalid JSON input: {e}") from e
+            raise InputJSONError(
+                f"Invalid JSON input: '{inputs}'", stage=StagePipeline.DATA_LOADING
+            ) from e
 
     def handle_metadata_artifact(self):
         metadata = self.load_metadata()
@@ -239,7 +257,7 @@ class InferencePipeline:
         self.logger.debug(
             "Artifact loaded and validated",
             extra={
-                "stage": StagePipeline.INFERENCE,
+                "stage": StagePipeline.LOADING,
                 "artifact_path": metadata.run.artifact_name,
                 "model_type": metadata.model.type,
                 "model_params": metadata.model.params,
@@ -254,7 +272,8 @@ class InferencePipeline:
         )
         if not hasattr(metadata, "model"):
             raise ArtifactError(
-                f"Artifact: {self.config.inference.metadata_name} does not contain fitted pipeline"
+                f"Artifact: {self.config.inference.metadata_name} does not contain fitted pipeline",
+                stage=StagePipeline.LOADING,
             )
 
         return metadata
@@ -323,7 +342,10 @@ class InferencePipeline:
 
     def _artifact_validation(self, artifact: Artifact, metadata: Metadata):
         if artifact["uuid"] != metadata.run.uuid:
-            raise ArtifactError("Metadata's UUID doesnt match the artifact's UUID")
+            raise ArtifactError(
+                "Metadata's UUID doesnt match the artifact's UUID",
+                stage=StagePipeline.LOADING,
+            )
 
     T = TypeVar("T", bound="InferencePipeline")
 

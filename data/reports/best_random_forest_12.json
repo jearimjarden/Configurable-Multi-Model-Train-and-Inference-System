@@ -1,0 +1,34 @@
+{
+    "metadata": {
+        "uuid": "d0278265-d14c-4881-9b3f-648edc412d04",
+        "metadata_name": "best_random_forest.json",
+        "allow_missing_features": false,
+        "threshold": 0.5,
+        "features_list": [
+            "Gender",
+            "Married",
+            "Dependents",
+            "Education",
+            "Self_Employed",
+            "ApplicantIncome",
+            "CoapplicantIncome",
+            "LoanAmount",
+            "Loan_Amount_Term",
+            "Credit_History",
+            "Property_Area"
+        ],
+        "timestamp": "17/04/2026, 17:41:31"
+    },
+    "predictions": [
+        {
+            "data_id": 1,
+            "prediction": 1,
+            "probability": 0.762
+        },
+        {
+            "data_id": 3,
+            "prediction": 1,
+            "probability": 0.504
+        }
+    ]
+}

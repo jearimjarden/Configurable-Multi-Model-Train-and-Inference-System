@@ -3,8 +3,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 import pandas as pd
-from ..tools.schemas import InferenceStrategy
-from ..tools.exceptions import DropColumnsError, TargetColumnError, PositiveValueError
+from ..tools.schemas import InferenceStrategy, StagePipeline
+from ..tools.exceptions import DataError
 
 
 def create_preprocessor(
@@ -37,15 +37,27 @@ def split_data(
     df: pd.DataFrame, target_col: str, positif_value: str, drop_features: list
 ) -> tuple[pd.DataFrame, pd.Series]:
     if target_col not in df.columns.tolist():
-        raise TargetColumnError("Target Columns Does not Exist")
+        raise DataError(
+            f"Target Columns: '{target_col}' does not exist",
+            stage=StagePipeline.DATA_ALIGNMENT,
+        )
     if not set(drop_features).issubset(set(df)):
-        raise DropColumnsError("Drop Features are not Exist in Training Dataset")
+        raise DataError(
+            f"Drop_features: '{drop_features}' does not exist",
+            stage=StagePipeline.DATA_ALIGNMENT,
+        )
     if positif_value not in df[target_col].unique():
-        raise PositiveValueError("True Value Does not Exist in Target Column")
+        raise DataError(
+            f"Positive value: '{positif_value}' does not exist in target col: '{target_col}'",
+            stage=StagePipeline.DATA_ALIGNMENT,
+        )
 
     unique_target_value = df[target_col].dropna().unique().tolist()
     if len(unique_target_value) > 2:
-        raise TargetColumnError("Target Column's Value Is not Binary")
+        raise DataError(
+            f"Can not accept more than 2 unique value in target columns, n of unique value: '{len(unique_target_value)}'",
+            stage=StagePipeline.DATA_ALIGNMENT,
+        )
 
     negative_value = list(set(unique_target_value) - set(positif_value))
     y = df[target_col].map({positif_value: 1, negative_value[0]: 0})

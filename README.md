@@ -8,12 +8,13 @@ and a structured pipeline for consistent preprocessing, training, and prediction
 ## Features List
     1. Separated train and inference module
     2. Configurable train and inference modul via config.yaml
-    3. JSON structured logger
+    3. JSON structured logger and file handler
     4. Multi-model train compability
     5. Automatically produced the best model with selected metrics options
     6. Custom true value for selected label 
     7. Custom metrics for train evaluation
     8. Custom threshold for prediction result in inference module
+    9. Inference service that accept json or panda's dataframe
 
 ## Configuration Sections
     1. Config.yaml
@@ -31,12 +32,14 @@ and a structured pipeline for consistent preprocessing, training, and prediction
             - true_value: the positive value for target_col in case positive value are not automatically recognize for numpy
             - drop_features: a list of columns name that will be dropped before model's training
             - selections_metrics: name of selected metrics that will be produced and will be used to determined best model
+            - missing_strategy: imputer's strategy for categorial data ("most_frequent" or "constant")
         c. inference
             - load_dir: directory path where artifact and metadata are stored
             - metadata_name: the name of metadata that will be used for model inference
             - allow_missing_features: allowing system to accept inference's data with missing features and impute it automatically
             - inference_report_path: directory path where prediction report will be saved
             - threshold: define threshold that determined predictions from probability
+            - save_result: save or do not save inference report
         d. artifact
             - save_dir: directory path where artifact and metadata file are saved during training module
             - only_best: define wether training system only save best (according to selected metrics) or all trained model
@@ -46,7 +49,12 @@ and a structured pipeline for consistent preprocessing, training, and prediction
             - recognize input: debug, info, warning, error, critical
             - default: info
 
-    3. Pre-listed Model:
+    3. ENV
+        a. PREDICT_SERVICE: Enable inference service panda's dataframe or json input / using selected csv file as inference input
+        b. SAVE_LOG: enable / disable file handler logger
+        c. SAVE_LOG_LEVEL: logger level for file handler
+
+    4. Pre-listed Model:
         a. LogisticRegression
         b. DecisionTreeClassifier
         c. RandomForestClassifier
@@ -74,18 +82,22 @@ and a structured pipeline for consistent preprocessing, training, and prediction
 
 
 ## Error Handling
-    1. All exception are catch in entry points (train.py and inference.py)
-    2. Exit Code
+    Error will be logged including message and stage
+
+    1. All exception that catch in pipeline will be logged (training_pipeline.py and inference_pipeline.py)
+    2. Unexpected will catch by entry points (train.py and inference.py)
+    3. Exit Code
         - 0: Module exited with no error
         - 1: Expected error occured 
         - 2: Unexpected error occured
-    3. Error Name:
+    4. Error Name:
         - ConfigError: Invalid config structure or value
-        - DataError: Data's path not exits, invalid data's extension, data's is empty
-        - PreprocessError: Invalid target's columns, invalid's true value, invalid drop's columns, missing Features'columns
-        - TrainError: Invalid's training model's parameter, invalid selected metrics
-        - InferenceError: Invalid metadata's structure or value, missing columns found, artifact's uuid not matched metadata's uuid
-
+        - DataError: error caused by the inputted data for training or inference
+        - TrainingError: error caused in training pipeline
+        - InferenceError: error caused in inference pipeline
+        - MetadataError: error caused while loading metadata
+        - ArtifactError: error caused while loading artifact
+        - LoggedError: a flag for logged error to avoid multiple logging
 
 ## How to Run
     1. Training Module:
@@ -127,13 +139,14 @@ and a structured pipeline for consistent preprocessing, training, and prediction
         - reports
         - test
         - train
+    - logs
     - config.yaml
     - README.md
 
 
 ## Design decisions
     1. Only pre-listed model are accepted to ensure model reability
-    2. All input from outside system are validated using pydantic ensuring data correctness 
+    2. All input from outside system are validated using pydantic ensuring same field with training's field
     3. Artifacts stored pipeline that contain preprocessor and model, to ensure that artifact always stored a complete artifact file
     4. UUID are introduced for artifact and metadata, and will be used for inference module to check artifact fitness to metadata
     5. Folder are separated: core (entry points), pipeline (execution flow and services orchestrator for each module), services (system's logic), tools (tools that support system)
@@ -141,10 +154,12 @@ and a structured pipeline for consistent preprocessing, training, and prediction
     7. Extra features always dropped 
     8. Metrics selection and parameters are only checked for the data type and incoming error caused by them are handled in system's service
     9. Inference features order are automatically re-ordered to ensure model prediction realibility
+    10. Inference module has 2 options: 1. service to accept panda's dataframe or json,     2. data input from csv file
+    11. All input data for inference module are converted to dict then checked by pydantic so extra columns will be ignore
+    12. Normalization happened for input data from pandas dataframe to ensure correctness of field's type
+    
 
 ## Limitations
-1. Only work for tabular data specifically data with csv extension
-2. Only work for classification model with binary label / target
-3. Cannot accept json file as inference's input for single data
-4. No artifacts validation, only validation on fitness between metadata and artifact
-5. Only accept single selections metrics could not accept a list of selections metrics
+1. Only work for classification model with binary label / target
+2. Artifact validation only check wether model pipeline is exist in artifact or not
+3. Only accept single selections metrics could not accept a list of selections metrics

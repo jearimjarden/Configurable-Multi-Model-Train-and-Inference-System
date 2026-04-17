@@ -1,106 +1,21 @@
 import sys
 import logging
-import json
-import pandas as pd
-from ..tools.schemas import Settings, StagePipeline
+from data.test.test_data_custom import TEST_CASES
+from ..tools.schemas import Config, Settings, StagePipeline
 from ..tools.cli import parse_cli
 from ..tools.logging import create_bootstrap_logger, setup_logging
 from ..tools.exceptions import (
-    ConfigError,
+    ConfigurationError,
     InferenceError,
     DataError,
+    LoggedError,
 )
 from ..tools.loader import load_config, load_settings
 from ..pipelines.inference_pipeline import InferencePipeline
 
-TEST_SINGLE = [
-    {
-        "Loan_ID1": "LP00105",
-        "Loan_ID": "LP00105",
-        "Gender": "Male",
-        "Married": "Yes",
-        "Dependents": 0,
-        "Education": "Graduate",
-        "Self_Employed": "No",
-        "ApplicantIncome": 5720,
-        "CoapplicantIncome": 0,
-        "LoanAmount": 110,
-        "Loan_Amount_Term": 360,
-        "Credit_History": 1,
-        "Property_Area": "Urban",
-    }
-]
 
-TEST_MISSING = [
-    {
-        "Loan_ID": "LP00105",
-        "Gender": "Female",
-        "Married": "Yes",
-        "Dependents": 0,
-        "Education": "Graduate",
-        "Self_Employed": "No",
-        "ApplicantIncome": 5720,
-        "CoapplicantIncome": 0,
-        "LoanAmount": 110,
-        "Loan_Amount_Term": 360,
-        "Credit_History": 1,
-        "Property_Area": "Urban",
-    }
-]
-TEST_BATCH = [
-    {
-        "Loan_ID": "LP00105",
-        "Gender": "Male",
-        "Married": "Yes",
-        "Dependents": 0,
-        "Education": "Graduate",
-        "Self_Employed": "No",
-        "ApplicantIncome": 5720,
-        "CoapplicantIncome": 0,
-        "LoanAmount": 110,
-        "Loan_Amount_Term": 360,
-        "Credit_History": 1,
-        "Property_Area": "Urban",
-    },
-    {
-        "Loan_ID": "LP00105",
-        "Gender": "Female",
-        "Married": "Yes",
-        "Dependents": 0,
-        "Education": "Graduate",
-        "ApplicantIncome": 5720,
-        "CoapplicantIncome": 0,
-        "LoanAmount": 110,
-        "Loan_Amount_Term": 360,
-        "Credit_History": 1,
-        "Property_Area": "Urban",
-    },
-    {
-        "Loan_ID": "LP00106",
-        "Gender": "Female",
-        "Married": "No",
-        "Dependents": 2,
-        "Education": "Graduate",
-        "Self_Employed": "No",
-        "ApplicantIncome": 0,
-        "CoapplicantIncome": 0,
-        "LoanAmount": 11000,
-        "Loan_Amount_Term": 360,
-        "Credit_History": 1,
-        "Property_Area": "Urban",
-    },
-]
-
-TEST_SINGLE_DF = pd.DataFrame(TEST_SINGLE)
-
-
-def main(logger: logging.Logger, settings: Settings):
+def main(logger: logging.Logger, settings: Settings, config: Config):
     try:
-        # input_data = json.dumps(TEST_BATCH)
-        input_data = TEST_SINGLE_DF
-
-        config = load_config()
-
         pipeline = InferencePipeline.from_config(
             config=config, logger=logger, settings=settings
         )
@@ -118,7 +33,7 @@ def main(logger: logging.Logger, settings: Settings):
                 "save_result": config.inference.save_result,
             },
         )
-
+        input_data = TEST_CASES["batch_missing"].json()
         pipeline.run(input=input_data)
 
         logger.info(
@@ -127,11 +42,13 @@ def main(logger: logging.Logger, settings: Settings):
         sys.exit(0)
 
     except (
-        ConfigError,
         InferenceError,
         DataError,
     ) as e:
         logger.error(str(e), extra={"error_type": type(e).__name__})
+        sys.exit(1)
+
+    except LoggedError:
         sys.exit(1)
 
     except Exception as e:
@@ -144,11 +61,12 @@ if __name__ == "__main__":
         bootstrap_logger = create_bootstrap_logger()
         cli_data = parse_cli()
         settings = load_settings()
+        config = load_config()
         setup_logging(level=cli_data.logger, settings=settings)
         logger = logging.getLogger(__name__)
-        main(logger=logger, settings=settings)
+        main(logger=logger, settings=settings, config=config)
 
-    except ConfigError as e:
+    except ConfigurationError as e:
         bootstrap_logger.error(str(e))
         sys.exit(1)
 

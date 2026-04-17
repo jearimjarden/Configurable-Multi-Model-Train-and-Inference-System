@@ -1,9 +1,9 @@
 import logging
 import sys
-from ..tools.schemas import Settings, StagePipeline
+from ..tools.schemas import Settings, StagePipeline, Config
 from ..tools.exceptions import (
-    ConfigError,
-    DataError,
+    ConfigurationError,
+    LoggedError,
     PreprocessError,
     TrainingError,
 )
@@ -13,10 +13,8 @@ from ..tools.loader import load_config, load_settings
 from ..pipelines.training_pipeline import TrainingPipeline
 
 
-def main(logger: logging.Logger, settings: Settings):
+def main(logger: logging.Logger, settings: Settings, config: Config):
     try:
-        config = load_config()
-
         pipeline = TrainingPipeline.from_config(
             config=config, logger=logger, settings=settings
         )
@@ -45,12 +43,13 @@ def main(logger: logging.Logger, settings: Settings):
         sys.exit(0)
 
     except (
-        ConfigError,
-        DataError,
         PreprocessError,
         TrainingError,
     ) as e:
         logger.error(str(e))
+        sys.exit(1)
+
+    except LoggedError:
         sys.exit(1)
 
     except Exception as e:
@@ -63,11 +62,12 @@ if __name__ == "__main__":
         bootstrap_logger = create_bootstrap_logger()
         settings = load_settings()
         cli_data = parse_cli()
+        config = load_config()
         setup_logging(cli_data.logger, settings=settings)
         logger = logging.getLogger(__name__)
-        main(logger=logger, settings=settings)
+        main(logger=logger, settings=settings, config=config)
 
-    except ConfigError as e:
+    except ConfigurationError as e:
         bootstrap_logger.error(str(e))
         sys.exit(1)
 

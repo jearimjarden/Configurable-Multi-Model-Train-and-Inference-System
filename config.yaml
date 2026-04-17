@@ -1,6 +1,6 @@
 data:
   train_path: "data/train/train_data.csv"
-  inference_path: "data/test/test_data_4.csv"
+  inference_path: "data/test/new_data.csv"
 
 train:
   model: 
@@ -15,23 +15,23 @@ train:
     random_forest:
       type: random_forest
       params: 
-        max_depth: 5
+        max_depth: 15
   stratify: True
   n_cv: 5
   random_seed: 42
   target_col: "Loan_Status"
   true_value: "Y"
   drop_features: ["Loan_ID"]
-  selection_metrics: "average_precision"
+  selection_metrics: "accuracy"
   missing_strategy: "most_frequent"
 
 inference:
   load_dir: "data/artifacts"
   metadata_name: "best_random_forest.json"
-  allow_missing_features: False
+  allow_missing_features: True
   inference_report_path: "data/reports"
   threshold: 0.5
-  save_result: False
+  save_result: True
 
 artifact:
   save_dir: "data/artifacts"

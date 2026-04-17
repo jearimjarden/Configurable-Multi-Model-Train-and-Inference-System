@@ -6,8 +6,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold, StratifiedKFold, cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeClassifier
-from ..tools.exceptions import MetricsInvalidError, ParamsInvalidError
-from ..tools.schemas import Artifact, ConfigTrainModel, FittedModelPipeline
+from ..tools.exceptions import EvaluationError, ModelSelectionError
+from ..tools.schemas import (
+    Artifact,
+    ConfigTrainModel,
+    FittedModelPipeline,
+    StagePipeline,
+)
 
 
 def select_model(
@@ -23,7 +28,10 @@ def select_model(
         return Pipeline([("preprocessor", preprocessor), ("model", model(**params))])
 
     except TypeError as e:
-        raise ParamsInvalidError(f"Invalid parameter for '{name}': '{params}'") from e
+        raise ModelSelectionError(
+            f"Invalid parameter for model: '{name}' with param: '{params}'",
+            stage=StagePipeline.MODEL_SELECTION,
+        ) from e
 
 
 def select_cv_params(
@@ -88,8 +96,9 @@ def cross_validate_data(
 
         except ValueError as e:
             if "not a valid scoring value" in str(e):
-                raise MetricsInvalidError(
-                    f"Selection Metric: {selection_metrics} is invalid"
+                raise EvaluationError(
+                    f"Selection Metric: {selection_metrics} is invalid",
+                    stage=StagePipeline.EVALUATION,
                 ) from e
             raise
 
@@ -104,7 +113,6 @@ def fit_model(
     models: dict[str, ConfigTrainModel],
 ) -> list[FittedModelPipeline]:
     fitted_model_pipeline = []
-
     for name, model in models.items():
         selected_model = select_model(
             name=name,

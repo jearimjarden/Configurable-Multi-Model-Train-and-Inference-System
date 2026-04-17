@@ -1,37 +1,69 @@
-class ConfigError(Exception):
+class LoggedError(Exception):
     pass
 
 
-class SettingsInvalidError(ConfigError):
-    pass
+class ConfigurationError(Exception):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message)
+        self.stage = stage
 
 
-class SettingsNotExistsError(ConfigError):
-    pass
+class SettingsInvalidError(ConfigurationError):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
 
 
-class ConfigInvalidError(ConfigError):
-    pass
+class SettingsNotExistsError(ConfigurationError):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
 
 
-class ConfigNotExistsError(ConfigError):
-    pass
+class ConfigInvalidError(ConfigurationError):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
+
+
+class ConfigNotExistsError(ConfigurationError):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
 
 
 class DataError(Exception):
-    pass
+    def __init__(self, message: str, stage: str):
+        super().__init__(message)
+        self.stage = stage
 
 
 class DataNotExistsError(DataError):
-    pass
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
 
 
-class DataExtensionError(DataError):
-    pass
+class DataInvalidError(DataError):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
 
 
-class DataEmptyError(DataError):
-    pass
+class DataAlignerError(Exception):
+    def __init__(self, message: str, stage: str):
+        self.stage = stage
+        super().__init__(message)
+
+
+class TrainingError(Exception):
+    def __init__(self, message: str, stage: str):
+        self.stage = stage
+        super().__init__(message)
+
+
+class EvaluationError(TrainingError):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
+
+
+class ModelSelectionError(TrainingError):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
 
 
 class PreprocessError(Exception):
@@ -50,28 +82,20 @@ class DropColumnsError(PreprocessError):
     pass
 
 
-class TrainingError(Exception):
-    pass
-
-
-class MetricsInvalidError(TrainingError):
-    pass
-
-
-class ParamsInvalidError(TrainingError):
-    pass
-
-
 class InferenceError(Exception):
-    pass
+    def __init__(self, message: str, stage: str):
+        self.stage = stage
+        super().__init__(message)
 
 
 class MetadataError(InferenceError):
-    pass
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
 
 
 class ArtifactError(InferenceError):
-    pass
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
 
 
 class ColumnsMissingError(InferenceError):
@@ -79,8 +103,15 @@ class ColumnsMissingError(InferenceError):
 
 
 class FeatureTypeError(InferenceError):
-    pass
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
 
 
-class InputJSONError(InferenceError):
-    pass
+class InputJSONError(DataError):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
+
+
+class NoValidDataError(DataError):
+    def __init__(self, message: str, stage: str):
+        super().__init__(message, stage=stage)
