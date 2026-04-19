@@ -4,18 +4,18 @@
 
 ## 🔥 Why This Project Stands Out
 
-🧠 Dynamic schema generation from training metadata (no hardcoded contracts)
-🔗 UUID-based artifact validation to prevent model–metadata mismatch
-🔄 Dual inference workflows (batch processing & real-time service)
-🛡️ Failure-aware pipeline (explicit validation, no silent errors)
-⚙️ Fully config-driven architecture (no logic hardcoding)
-🔄 Unified input abstraction (JSON, dict, DataFrame, CSV → one pipeline)
-📊 End-to-end ML lifecycle (training → artifact → inference)
+- 🧠 Dynamic schema generation from training metadata (no hardcoded contracts)
+- 🔗 UUID-based artifact validation to prevent model–metadata mismatch
+- 🔄 Dual inference workflows (batch processing & real-time service)
+- 🛡️ Failure-aware pipeline (explicit validation, no silent errors)
+- ⚙️ Fully config-driven architecture (no logic hardcoding)
+- 🔄 Unified input abstraction (JSON, dict, DataFrame, CSV → one pipeline)
+- 📊 End-to-end ML lifecycle (training → artifact → inference)
 
 ## ⚡ Quick Example
 
 ```python
-from src.pipeline.inferencing import InferencePipeline
+from src.pipeline.inference_pipeline import InferencePipeline
 
 pipeline = InferencePipeline.from_config(config, logger, settings)
 
@@ -29,11 +29,13 @@ print(result)
 
 ### Example Output
 
+```python
 {
   "data_id": 1,
   "prediction": 1,
   "probability": 0.87
 }
+```
 
 ## 📌 What Problem This Solves
 
@@ -68,19 +70,19 @@ Inference:
 
 ## 🔄 Inference Modes
 
-🟢 Batch Mode (CSV)
-Input: CSV file
-Output: Prediction report
-Use case: bulk prediction / analytics
+- 🟢 Batch Mode (CSV)
+    - Input: CSV file
+    - Output: Prediction report
+    - Use case: bulk prediction / analytics
 
-🔵 Service Mode (Real-Time)
-Input: dict / JSON / DataFrame
-Output: Prediction result
-Use case: APIs / applications
+- 🔵 Service Mode (Real-Time)
+    - Input: dict / JSON / DataFrame
+    - Output: Prediction result
+    - Use case: APIs / applications
 
-⚙️ Configuration (.env)
-PREDICT_SERVICE=true   # real-time mode
-PREDICT_SERVICE=false  # batch mode
+- ⚙️ Configuration (.env)
+    - PREDICT_SERVICE=true   # real-time mode
+    - PREDICT_SERVICE=false  # batch mode
 
 ## 🔥 Feature List
 
@@ -88,11 +90,11 @@ PREDICT_SERVICE=false  # batch mode
 
 Supports multiple formats:
 
-JSON string
-Python dictionary
-List of dictionaries
-Pandas DataFrame
-CSV file
+1. JSON string
+2. Python dictionary
+3. List of dictionaries
+4. Pandas DataFrame
+5. CSV file
 
 All inputs are normalized into a unified internal format before validation and prediction.
 
@@ -104,17 +106,17 @@ metadata → Pydantic model → runtime validation
 
 Ensures:
 
-strict consistency between training and inference
-no duplicated schema definitions
-automatic adaptation to new features
+- strict consistency between training and inference
+- no duplicated schema definitions
+- automatic adaptation to new features
 
 ### 🔧 Data Normalization Layer
 
 Before validation, input data is normalized:
 
-type coercion (numeric ↔ categorical)
-semantic alignment with training features
-compatibility enforcement with model expectations
+- type coercion (numeric ↔ categorical)
+- semantic alignment with training features
+- compatibility enforcement with model expectations
 
 ### 🆔 Data Traceability
 
@@ -124,19 +126,19 @@ input → validation → prediction → report
 
 Enables:
 
-traceable predictions
-debugging at row level
-structured reporting
+- traceable predictions
+- debugging at row level
+- structured reporting
 
 ### 📊 Prediction Output
 
 Each prediction includes:
 
-data_id → row identifier
-prediction → model output
-probability → confidence score
+- data_id → row identifier
+- prediction → model output
+- probability → confidence score
 
-###🔗 Artifact–Metadata Validation
+### 🔗 Artifact–Metadata Validation
 
 The system enforces strict consistency:
 
@@ -146,33 +148,33 @@ Mismatch → immediate failure.
 
 Prevents:
 
-incorrect model usage
-version mismatch bugs
-silent inference errors
+- incorrect model usage
+- version mismatch bugs
+- silent inference errors
 
 ### 🛡️ Failure-Aware Design
 
 The system is designed to fail safely:
 
-row with missing features are skipped or rejected (configurable)
-all errors include structured context
-no silent failures
+- row with missing features are skipped or rejected (configurable)
+- all errors include structured context
+- no silent failures
 
 ### 📊 Structured Logging
-JSON-based logs
-stage-aware tracking (training, validation, inference)
-contextual metadata (data_id, schema, errors)
-optional file logging
+JSON-based logs:
+- stage-aware tracking (training, validation, inference)
+- contextual metadata (data_id, schema, errors)
+- optional file logging
 
 ## 📁 Structure
 
-src/
-  core/
-  pipeline/
-  services/
-  data/
-  io/
-  tools/
+- src/
+    - core/
+    - pipeline/
+    - services/
+    - data/
+    - io/
+    - tools/
 
 ## ⚙️ Configuration System
 
@@ -193,24 +195,22 @@ Inference:
 python -m src.core.inference
 
 ## 🧩 Design Decisions
-Only pre-defined models allowed → ensure reliability
-Pipeline saved as artifact → guarantees preprocessing consistency
-UUID validation → prevents artifact mismatch
-Schema validation at inference → enforces strict data contract
-Feature alignment:
-extra features → dropped
-missing features → optionally imputed
-order → automatically aligned
+1. Only pre-defined models allowed → ensure reliability
+2. Pipeline saved as artifact → guarantees preprocessing consistency
+3. UUID validation → prevents artifact mismatch
+4. Schema validation at inference → enforces strict data contract
+5. Feature alignment:
+6. extra features → dropped
+7. missing features → optionally imputed
+8. order → automatically aligned
 
 ## ⚠️ Limitations
-Binary classification only
-Single evaluation metric
-No automated retraining pipeline
+1. Binary classification only
+2. Single evaluation metric
+3. No automated retraining pipeline
 
 
 ## 🗃️Detailed Configuration Sections
-
-Configuration Sections
     1. Config.yaml
         a. data
             - train_path: path to the csv file used for training
