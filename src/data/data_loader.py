@@ -1,8 +1,7 @@
 from pathlib import Path
 import pandas as pd
-
-from ..tools.schemas import StagePipeline
-from ..tools.exceptions import (
+from src.tools.schemas import StagePipeline
+from src.tools.exceptions import (
     DataNotExistsError,
     DataInvalidError,
 )

@@ -1,16 +1,17 @@
 from pydantic import ValidationError
 from pathlib import Path
 import yaml
-from .exceptions import (
+from src.tools.exceptions import (
     ConfigInvalidError,
     ConfigNotExistsError,
     SettingsInvalidError,
 )
-from ..tools.schemas import Config, Settings, StagePipeline
+from src.tools.schemas import Config, Settings, StagePipeline
 
 
-def load_config() -> Config:
-    config_path = Path("config.yaml")
+def load_config(path: str) -> Config:
+    BASE_DIR = Path(__file__).resolve().parents[2]
+    config_path = BASE_DIR / path
 
     try:
         with open(config_path, "r") as f:
@@ -44,9 +45,9 @@ def load_config() -> Config:
         ) from e
 
 
-def load_settings():
+def load_settings(path: str) -> Settings:
     try:
-        env = Settings.load()
+        env = Settings.load(path)
         return env
 
     except ValidationError as e:

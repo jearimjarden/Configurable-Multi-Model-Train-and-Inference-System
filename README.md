@@ -1,22 +1,216 @@
-# Configurable Multi Model Training and Inference System
+# 🚀 ML System with Robust Inference & Data Contract Enforcement
 
-## Description
-A configurable machine learning system that separates training and inference workflows. 
-It supports multi-model training, automated model selection based on evaluation metrics, 
-and a structured pipeline for consistent preprocessing, training, and prediction.
+> A production-style machine learning system designed to ensure reliable training and inference through dynamic schema validation, artifact consistency checks, and failure-aware pipeline design.
 
-## Features List
-    1. Separated train and inference module
-    2. Configurable train and inference modul via config.yaml
-    3. JSON structured logger and file handler
-    4. Multi-model train compability
-    5. Automatically produced the best model with selected metrics options
-    6. Custom true value for selected label 
-    7. Custom metrics for train evaluation
-    8. Custom threshold for prediction result in inference module
-    9. Inference service that accept json or panda's dataframe
+## 🔥 Why This Project Stands Out
 
-## Configuration Sections
+🧠 Dynamic schema generation from training metadata (no hardcoded contracts)
+🔗 UUID-based artifact validation to prevent model–metadata mismatch
+🔄 Dual inference workflows (batch processing & real-time service)
+🛡️ Failure-aware pipeline (explicit validation, no silent errors)
+⚙️ Fully config-driven architecture (no logic hardcoding)
+🔄 Unified input abstraction (JSON, dict, DataFrame, CSV → one pipeline)
+📊 End-to-end ML lifecycle (training → artifact → inference)
+
+## ⚡ Quick Example
+
+```python
+from src.pipeline.inferencing import InferencePipeline
+
+pipeline = InferencePipeline.from_config(config, logger, settings)
+
+result = pipeline.predict({
+    "Age": 30,
+    "Income": 5000
+})
+
+print(result)
+```
+
+### Example Output
+
+{
+  "data_id": 1,
+  "prediction": 1,
+  "probability": 0.87
+}
+
+## 📌 What Problem This Solves
+
+Prevents common ML failures:
+- feature mismatch between training and inference
+- inconsistent preprocessing pipelines
+- incorrect artifact version usage
+- silent schema inconsistencies
+
+This system enforces a strict data contract + pipeline consistency + explicit validation to eliminate these failure modes.
+
+## 🧠 Architecture
+
+Training:
+→ load config
+→ load data
+→ create preprocessing pipeline
+→ train multiple models
+→ evaluate models
+→ select best model
+→ save artifact (pipeline) + metadata
+
+Inference:
+→ load metadata
+→ load artifact
+→ generate validation schema dynamically
+→ normalize input
+→ validate input
+→ align features
+→ predict
+→ generate report
+
+## 🔄 Inference Modes
+
+🟢 Batch Mode (CSV)
+Input: CSV file
+Output: Prediction report
+Use case: bulk prediction / analytics
+
+🔵 Service Mode (Real-Time)
+Input: dict / JSON / DataFrame
+Output: Prediction result
+Use case: APIs / applications
+
+⚙️ Configuration (.env)
+PREDICT_SERVICE=true   # real-time mode
+PREDICT_SERVICE=false  # batch mode
+
+## 🔥 Feature List
+
+### 🔄 Unified Input Handling
+
+Supports multiple formats:
+
+JSON string
+Python dictionary
+List of dictionaries
+Pandas DataFrame
+CSV file
+
+All inputs are normalized into a unified internal format before validation and prediction.
+
+### 🧠 Dynamic Schema Generation
+
+Validation schema is generated directly from training metadata:
+
+metadata → Pydantic model → runtime validation
+
+Ensures:
+
+strict consistency between training and inference
+no duplicated schema definitions
+automatic adaptation to new features
+
+### 🔧 Data Normalization Layer
+
+Before validation, input data is normalized:
+
+type coercion (numeric ↔ categorical)
+semantic alignment with training features
+compatibility enforcement with model expectations
+
+### 🆔 Data Traceability
+
+Each input row is assigned a data_id:
+
+input → validation → prediction → report
+
+Enables:
+
+traceable predictions
+debugging at row level
+structured reporting
+
+### 📊 Prediction Output
+
+Each prediction includes:
+
+data_id → row identifier
+prediction → model output
+probability → confidence score
+
+###🔗 Artifact–Metadata Validation
+
+The system enforces strict consistency:
+
+artifact.uuid == metadata.uuid
+
+Mismatch → immediate failure.
+
+Prevents:
+
+incorrect model usage
+version mismatch bugs
+silent inference errors
+
+### 🛡️ Failure-Aware Design
+
+The system is designed to fail safely:
+
+row with missing features are skipped or rejected (configurable)
+all errors include structured context
+no silent failures
+
+### 📊 Structured Logging
+JSON-based logs
+stage-aware tracking (training, validation, inference)
+contextual metadata (data_id, schema, errors)
+optional file logging
+
+## 📁 Structure
+
+src/
+  core/
+  pipeline/
+  services/
+  data/
+  io/
+  tools/
+
+## ⚙️ Configuration System
+
+All behavior is controlled via config.yaml.
+
+Key Sections
+data → dataset paths
+train → models, parameters, CV strategy, target
+inference → artifact loading, threshold, feature handling
+artifact → saving strategy
+
+## 🚀 Run
+
+Training:
+python -m src.core.train
+
+Inference:
+python -m src.core.inference
+
+## 🧩 Design Decisions
+Only pre-defined models allowed → ensure reliability
+Pipeline saved as artifact → guarantees preprocessing consistency
+UUID validation → prevents artifact mismatch
+Schema validation at inference → enforces strict data contract
+Feature alignment:
+extra features → dropped
+missing features → optionally imputed
+order → automatically aligned
+
+## ⚠️ Limitations
+Binary classification only
+Single evaluation metric
+No automated retraining pipeline
+
+
+## 🗃️Detailed Configuration Sections
+
+Configuration Sections
     1. Config.yaml
         a. data
             - train_path: path to the csv file used for training
@@ -50,7 +244,7 @@ and a structured pipeline for consistent preprocessing, training, and prediction
             - default: info
 
     3. ENV
-        a. PREDICT_SERVICE: Enable inference service panda's dataframe or json input / using selected csv file as inference input
+        a. PREDICT_SERVICE: Enable inference service 
         b. SAVE_LOG: enable / disable file handler logger
         c. SAVE_LOG_LEVEL: logger level for file handler
 
@@ -60,106 +254,4 @@ and a structured pipeline for consistent preprocessing, training, and prediction
         c. RandomForestClassifier
 
 
-## How it Works
-    1. Training Module:
-        a. Flowchart:
-            load config -> load training data -> create training preprocessor -> evaluate data using selected model -> fit model -> save artifact and metadata
-        b. Input:
-            - Training Data: csv data used for training
-        c. Output:
-            - Artifact : store fitted model
-            - Metadata : store information for fitted model
-
-    2. Inference Module:
-        - Flowchart:
-            load config -> load metadata -> load artifact -> load inference data -> validate and align data using metadata information -> predict inference data using loaded artifact -> save prediction report
-        - Input:
-            - Artifact: stored fitted model
-            - Metadata: stored information for fitted model
-            - Inference Data: csv data that will be predicted
-        - Output:
-            - Prediction Report: store prediction information, prediction and probability of each predicted data
-
-
-## Error Handling
-    Error will be logged including message and stage
-
-    1. All exception that catch in pipeline will be logged (training_pipeline.py and inference_pipeline.py)
-    2. Unexpected will catch by entry points (train.py and inference.py)
-    3. Exit Code
-        - 0: Module exited with no error
-        - 1: Expected error occured 
-        - 2: Unexpected error occured
-    4. Error Name:
-        - ConfigError: Invalid config structure or value
-        - DataError: error caused by the inputted data for training or inference
-        - TrainingError: error caused in training pipeline
-        - InferenceError: error caused in inference pipeline
-        - MetadataError: error caused while loading metadata
-        - ArtifactError: error caused while loading artifact
-        - LoggedError: a flag for logged error to avoid multiple logging
-
-## How to Run
-    1. Training Module:
-    bash '
-    pip install -r requirements.txt
-    python3 -m src.core.train'
-
-    2. Inference Module:
-    bash '
-    pip install -r requirements.txt
-    pyhthon3 -m src.core.inference'
-
-    Notes:
-    - Read Configuration Section before running the module
-    - training and inference module are controlled via config.yaml
-    - CLI are used to control logging level ('-l' or '-logger')
-
-
-## Project Structure
-    - src
-        - core
-            - train.py
-            - inference.py
-        - pipeline
-            - training.py
-            - inferencing.py
-        - services
-            - data_loader.py
-            - models.py
-            - preproecessor.py
-            - IO.py
-        - tools
-            - exceptions.py
-            - cli.py
-            - loader.py
-            - schemas.py
-    - data
-        - artifacts
-        - reports
-        - test
-        - train
-    - logs
-    - config.yaml
-    - README.md
-
-
-## Design decisions
-    1. Only pre-listed model are accepted to ensure model reability
-    2. All input from outside system are validated using pydantic ensuring same field with training's field
-    3. Artifacts stored pipeline that contain preprocessor and model, to ensure that artifact always stored a complete artifact file
-    4. UUID are introduced for artifact and metadata, and will be used for inference module to check artifact fitness to metadata
-    5. Folder are separated: core (entry points), pipeline (execution flow and services orchestrator for each module), services (system's logic), tools (tools that support system)
-    6. Extra and missing features are produce by comparing features list in metadata and inference data features list
-    7. Extra features always dropped 
-    8. Metrics selection and parameters are only checked for the data type and incoming error caused by them are handled in system's service
-    9. Inference features order are automatically re-ordered to ensure model prediction realibility
-    10. Inference module has 2 options: 1. service to accept panda's dataframe or json,     2. data input from csv file
-    11. All input data for inference module are converted to dict then checked by pydantic so extra columns will be ignore
-    12. Normalization happened for input data from pandas dataframe to ensure correctness of field's type
-    
-
-## Limitations
-1. Only work for classification model with binary label / target
-2. Artifact validation only check wether model pipeline is exist in artifact or not
-3. Only accept single selections metrics could not accept a list of selections metrics
+Jearim Jarden

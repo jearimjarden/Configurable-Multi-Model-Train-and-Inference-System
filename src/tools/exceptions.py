@@ -44,12 +44,6 @@ class DataInvalidError(DataError):
         super().__init__(message, stage=stage)
 
 
-class DataAlignerError(Exception):
-    def __init__(self, message: str, stage: str):
-        self.stage = stage
-        super().__init__(message)
-
-
 class TrainingError(Exception):
     def __init__(self, message: str, stage: str):
         self.stage = stage
@@ -66,22 +60,6 @@ class ModelSelectionError(TrainingError):
         super().__init__(message, stage=stage)
 
 
-class PreprocessError(Exception):
-    pass
-
-
-class TargetColumnError(PreprocessError):
-    pass
-
-
-class PositiveValueError(PreprocessError):
-    pass
-
-
-class DropColumnsError(PreprocessError):
-    pass
-
-
 class InferenceError(Exception):
     def __init__(self, message: str, stage: str):
         self.stage = stage
@@ -96,10 +74,6 @@ class MetadataError(InferenceError):
 class ArtifactError(InferenceError):
     def __init__(self, message: str, stage: str):
         super().__init__(message, stage=stage)
-
-
-class ColumnsMissingError(InferenceError):
-    pass
 
 
 class FeatureTypeError(InferenceError):

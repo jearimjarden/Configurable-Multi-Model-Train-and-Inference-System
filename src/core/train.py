@@ -1,16 +1,14 @@
 import logging
 import sys
-from ..tools.schemas import Settings, StagePipeline, Config
-from ..tools.exceptions import (
+from src.tools.schemas import Settings, StagePipeline, Config
+from src.tools.exceptions import (
     ConfigurationError,
     LoggedError,
-    PreprocessError,
-    TrainingError,
 )
-from ..tools.cli import parse_cli
-from ..tools.logging import create_bootstrap_logger, setup_logging
-from ..tools.loader import load_config, load_settings
-from ..pipelines.training_pipeline import TrainingPipeline
+from src.tools.cli import parse_cli
+from src.tools.logging import create_bootstrap_logger, setup_logging
+from src.tools.loader import load_config, load_settings
+from src.pipelines.training_pipeline import TrainingPipeline
 
 
 def main(logger: logging.Logger, settings: Settings, config: Config):
@@ -42,13 +40,6 @@ def main(logger: logging.Logger, settings: Settings, config: Config):
 
         sys.exit(0)
 
-    except (
-        PreprocessError,
-        TrainingError,
-    ) as e:
-        logger.error(str(e))
-        sys.exit(1)
-
     except LoggedError:
         sys.exit(1)
 
@@ -60,9 +51,9 @@ def main(logger: logging.Logger, settings: Settings, config: Config):
 if __name__ == "__main__":
     try:
         bootstrap_logger = create_bootstrap_logger()
-        settings = load_settings()
+        settings = load_settings(".env")
         cli_data = parse_cli()
-        config = load_config()
+        config = load_config("config.yaml")
         setup_logging(cli_data.logger, settings=settings)
         logger = logging.getLogger(__name__)
         main(logger=logger, settings=settings, config=config)

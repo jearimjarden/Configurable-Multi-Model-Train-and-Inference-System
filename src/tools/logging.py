@@ -4,7 +4,7 @@ import json
 import traceback
 from pathlib import Path
 import os
-from .schemas import Settings
+from src.tools.schemas import Settings
 
 LOG_FILE_PATH = Path("logs")
 

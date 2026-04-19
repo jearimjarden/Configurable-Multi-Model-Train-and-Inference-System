@@ -1,8 +1,8 @@
 {
     "run": {
-        "uuid": "183d8751-d9df-47b4-b5df-5c8d9024cf5e",
+        "uuid": "b821204b-c238-4f3c-a6b5-9fcf1d9e5423",
         "artifact_name": "best_logistic_regression.pkl",
-        "timestamp": "17/04/2026, 21:04:49"
+        "timestamp": "19/04/2026, 14:13:08"
     },
     "model": {
         "type": "LOGISTIC_REGRESSION",

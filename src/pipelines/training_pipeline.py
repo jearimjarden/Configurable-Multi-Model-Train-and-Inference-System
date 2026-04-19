@@ -4,12 +4,14 @@ import logging
 import uuid
 import pandas as pd
 import time
-from ..tools.exceptions import DataError, LoggedError, TrainingError
-from ..tools.schemas import Config, FittedModelPipeline, Settings, StagePipeline
-from ..services.data_loader import load_data
-from ..services.preprocessor import create_preprocessor, split_data
-from ..services.models import cross_validate_data, fit_model
-from ..services.IO import create_artifact, create_metadata, infer_semantic
+from src.tools.exceptions import DataError, LoggedError, TrainingError
+from src.tools.schemas import Config, FittedModelPipeline, Settings, StagePipeline
+from src.data.data_loader import load_data
+from src.services.preprocessor import create_preprocessor, split_data
+from src.services.models import cross_validate_data, fit_model
+from src.io.metadata_io import create_metadata
+from src.io.artifact_io import create_artifact
+from src.data.semantic import infer_semantic
 
 
 class TrainingPipeline:
@@ -18,7 +20,7 @@ class TrainingPipeline:
         self.logger = logger
         self.settings = settings
 
-    def run(self):
+    def run(self) -> None:
         try:
             data, total_rows, total_cols = self.load_data()
             self.logger.info(

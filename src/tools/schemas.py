@@ -8,7 +8,11 @@ from sklearn.tree import DecisionTreeClassifier
 from typing import Optional, TypedDict
 from pathlib import Path
 from typing import Type
-from .exceptions import ConfigurationError, SettingsNotExistsError, FeatureTypeError
+from src.tools.exceptions import (
+    ConfigurationError,
+    SettingsNotExistsError,
+    FeatureTypeError,
+)
 
 
 class Artifact(TypedDict):
@@ -23,8 +27,6 @@ class FittedModelPipeline(TypedDict):
 
 class StagePipeline(str, Enum):
     TRAINING = "training"
-    DATA_PROCESSING = "data_processing"
-    DATA_PREPROCESSING = "data_preprocessing"
     DATA_ALIGNMENT = "data_aligment"
     EVALUATION = "evaluation"
     MODEL_SELECTION = "model_selection"
@@ -47,9 +49,6 @@ class InferenceStrategy(str, Enum):
     CONSTANT = "constant"
 
 
-ENV_PATH = ".env"
-
-
 class LOG_LEVEL(str, Enum):
     LOGGER_DEBUG = "debug"
     LOGGER_INFO = "info"
@@ -63,16 +62,18 @@ class Settings(BaseSettings):
     predict_service: bool = Field(...)
     save_log: bool = Field(...)
     save_log_level: LOG_LEVEL = Field(...)
-    model_config = SettingsConfigDict(env_file=ENV_PATH, extra="forbid")
+    model_config = SettingsConfigDict(extra="forbid")
 
     @classmethod
-    def load(cls: Type["Settings"]) -> "Settings":
-        if not Path(ENV_PATH).exists():
+    def load(cls: Type["Settings"], path: str) -> "Settings":
+        BASE_DIR = Path(__file__).resolve().parents[2]
+        settings_path = Path(BASE_DIR) / path
+        if not Path(settings_path).exists():
             raise SettingsNotExistsError(
-                f"Env file not found at {ENV_PATH}",
+                f"Env file not found at {settings_path}",
                 stage=StagePipeline.CONFIGURATION_LOADING,
             )
-        return cls()  # type: ignore
+        return cls(_env_file=settings_path)  # type: ignore
 
 
 class ConfigData(BaseModel):

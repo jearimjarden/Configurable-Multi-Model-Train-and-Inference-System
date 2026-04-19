@@ -3,8 +3,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 import pandas as pd
-from ..tools.schemas import InferenceStrategy, StagePipeline
-from ..tools.exceptions import DataError
+from src.tools.schemas import InferenceStrategy, StagePipeline
+from src.tools.exceptions import DataError
 
 
 def create_preprocessor(

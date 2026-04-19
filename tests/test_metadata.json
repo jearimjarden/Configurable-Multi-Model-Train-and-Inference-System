@@ -1,0 +1,89 @@
+{
+    "run": {
+        "uuid": "ca28248c-ce64-4a68-8f53-ef8511900723",
+        "artifact_name": "best_random_forest.pkl",
+        "timestamp": "16/04/2026, 17:48:24"
+    },
+    "model": {
+        "type": "RANDOM_FOREST",
+        "params": {
+            "max_depth": 5,
+            "random_state": 42
+        }
+    },
+    "training": {
+        "target_col": "Loan_Status",
+        "features_col": [
+            "Gender",
+            "Married",
+            "Dependents",
+            "Education",
+            "Self_Employed",
+            "ApplicantIncome",
+            "CoapplicantIncome",
+            "LoanAmount",
+            "Loan_Amount_Term",
+            "Credit_History",
+            "Property_Area"
+        ],
+        "features_name_and_type": {
+            "Gender": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "Married": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "Dependents": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "Education": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "Self_Employed": {
+                "type": "str",
+                "semantic": "categorial"
+            },
+            "ApplicantIncome": {
+                "type": "int64",
+                "semantic": "numerical"
+            },
+            "CoapplicantIncome": {
+                "type": "float64",
+                "semantic": "numerical"
+            },
+            "LoanAmount": {
+                "type": "float64",
+                "semantic": "numerical"
+            },
+            "Loan_Amount_Term": {
+                "type": "float64",
+                "semantic": "numerical"
+            },
+            "Credit_History": {
+                "type": "float64",
+                "semantic": "numerical"
+            },
+            "Property_Area": {
+                "type": "str",
+                "semantic": "categorial"
+            }
+        },
+        "stratify": true,
+        "random_seed": 42
+    },
+    "data": {
+        "train_data": "data/train/train_data.csv",
+        "n_samples": 614,
+        "class_ratio": "1:1.4549763033175356"
+    },
+    "metrics": {
+        "train_accuracy": 0.822,
+        "test_accuracy": 0.806,
+        "gap_accuracy": 0.0163,
+        "f{selection_metrics}_std": 0.018
+    }
+}

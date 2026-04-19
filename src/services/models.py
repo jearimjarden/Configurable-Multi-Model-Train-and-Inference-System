@@ -6,8 +6,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold, StratifiedKFold, cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeClassifier
-from ..tools.exceptions import EvaluationError, ModelSelectionError
-from ..tools.schemas import (
+from src.tools.exceptions import EvaluationError, ModelSelectionError
+from src.tools.schemas import (
     Artifact,
     ConfigTrainModel,
     FittedModelPipeline,
