@@ -76,7 +76,7 @@ def load_metadata(load_dir: str, metadata_name: str) -> Metadata:
                     messages.append(f"Extra params are not allowed: '{field}'")
                 else:
                     messages.append(
-                        f"Invalid parameter's value type for '{field}': {err["msg"]}"
+                        f"Invalid parameter's value type for '{field}': {err['msg']}"
                     )
 
             raise MetadataError(

@@ -1,18 +1,26 @@
-# 🚀 ML System with Robust Inference & Data Contract Enforcement
+# ML System with Robust Inference & Data Contract Enforcement
 
 > A production-style machine learning system designed to ensure reliable training and inference through dynamic schema validation, artifact consistency checks, and failure-aware pipeline design.
 
-## 🔥 Why This Project Stands Out
+## Why This Project Stands Out
 
-- 🧠 Dynamic schema generation from training metadata (no hardcoded contracts)
-- 🔗 UUID-based artifact validation to prevent model–metadata mismatch
-- 🔄 Dual inference workflows (batch processing & real-time service)
-- 🛡️ Failure-aware pipeline (explicit validation, no silent errors)
-- ⚙️ Fully config-driven architecture (no logic hardcoding)
-- 🔄 Unified input abstraction (JSON, dict, DataFrame, CSV → one pipeline)
-- 📊 End-to-end ML lifecycle (training → artifact → inference)
+- Dynamic schema generation from training metadata (no hardcoded contracts)
+- UUID-based artifact validation to prevent model–metadata mismatch
+- Dual inference workflows (batch processing & real-time service)
+- Failure-aware pipeline (explicit validation, no silent errors)
+- Fully config-driven architecture (no logic hardcoding)
+- Unified input abstraction (JSON, dict, DataFrame, CSV → one pipeline)
+- End-to-end ML lifecycle (training → artifact → inference)
 
-## ⚡ Quick Example
+## How to Run
+
+Training:
+python -m src.core.train
+
+Inference:
+python -m src.core.inference
+
+## Quick Example
 
 ```python
 from src.pipeline.inference_pipeline import InferencePipeline
@@ -37,7 +45,7 @@ print(result)
 }
 ```
 
-## 📌 What Problem This Solves
+## What Problem This Solves
 
 Prevents common ML failures:
 - feature mismatch between training and inference
@@ -47,7 +55,7 @@ Prevents common ML failures:
 
 This system enforces a strict data contract + pipeline consistency + explicit validation to eliminate these failure modes.
 
-## 🧠 Architecture
+## Architecture
 
 Training:
 → load config
@@ -68,25 +76,25 @@ Inference:
 → predict
 → generate report
 
-## 🔄 Inference Modes
+## Inference Modes
 
-- 🟢 Batch Mode (CSV)
+- Batch Mode (CSV)
     - Input: CSV file
     - Output: Prediction report
     - Use case: bulk prediction / analytics
 
-- 🔵 Service Mode (Real-Time)
+- Service Mode (Real-Time)
     - Input: dict / JSON / DataFrame
     - Output: Prediction result
     - Use case: APIs / applications
 
-- ⚙️ Configuration (.env)
+- Configuration (.env)
     - PREDICT_SERVICE=true   # real-time mode
     - PREDICT_SERVICE=false  # batch mode
 
-## 🔥 Feature List
+## Feature List
 
-### 🔄 Unified Input Handling
+### Unified Input Handling
 
 Supports multiple formats:
 
@@ -98,7 +106,7 @@ Supports multiple formats:
 
 All inputs are normalized into a unified internal format before validation and prediction.
 
-### 🧠 Dynamic Schema Generation
+### Dynamic Schema Generation
 
 Validation schema is generated directly from training metadata:
 
@@ -110,7 +118,7 @@ Ensures:
 - no duplicated schema definitions
 - automatic adaptation to new features
 
-### 🔧 Data Normalization Layer
+### Data Normalization Layer
 
 Before validation, input data is normalized:
 
@@ -118,7 +126,7 @@ Before validation, input data is normalized:
 - semantic alignment with training features
 - compatibility enforcement with model expectations
 
-### 🆔 Data Traceability
+### Data Traceability
 
 Each input row is assigned a data_id:
 
@@ -130,7 +138,7 @@ Enables:
 - debugging at row level
 - structured reporting
 
-### 📊 Prediction Output
+### Prediction Output
 
 Each prediction includes:
 
@@ -138,7 +146,7 @@ Each prediction includes:
 - prediction → model output
 - probability → confidence score
 
-### 🔗 Artifact–Metadata Validation
+### Artifact–Metadata Validation
 
 The system enforces strict consistency:
 
@@ -152,7 +160,7 @@ Prevents:
 - version mismatch bugs
 - silent inference errors
 
-### 🛡️ Failure-Aware Design
+### Failure-Aware Design
 
 The system is designed to fail safely:
 
@@ -160,13 +168,13 @@ The system is designed to fail safely:
 - all errors include structured context
 - no silent failures
 
-### 📊 Structured Logging
+### Structured Logging
 JSON-based logs:
 - stage-aware tracking (training, validation, inference)
 - contextual metadata (data_id, schema, errors)
 - optional file logging
 
-## 📁 Structure
+## Structure
 
 - src/
     - core/
@@ -176,7 +184,7 @@ JSON-based logs:
     - io/
     - tools/
 
-## ⚙️ Configuration System
+## Configuration System
 
 All behavior is controlled via config.yaml.
 
@@ -186,15 +194,8 @@ train → models, parameters, CV strategy, target
 inference → artifact loading, threshold, feature handling
 artifact → saving strategy
 
-## 🚀 Run
 
-Training:
-python -m src.core.train
-
-Inference:
-python -m src.core.inference
-
-## 🧩 Design Decisions
+## Design Decisions
 1. Only pre-defined models allowed → ensure reliability
 2. Pipeline saved as artifact → guarantees preprocessing consistency
 3. UUID validation → prevents artifact mismatch
@@ -204,13 +205,13 @@ python -m src.core.inference
 7. missing features → optionally imputed
 8. order → automatically aligned
 
-## ⚠️ Limitations
+## Limitations
 1. Binary classification only
 2. Single evaluation metric
 3. No automated retraining pipeline
 
 
-## 🗃️Detailed Configuration Sections
+## Detailed Configuration Sections
     1. Config.yaml
         a. data
             - train_path: path to the csv file used for training
